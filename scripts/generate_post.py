@@ -4,6 +4,7 @@ import requests
 import hashlib
 from datetime import datetime
 import random
+import re
 
 # GitHub Actions Secret에서 Gemini API 키 가져오기
 GEMINI_API_KEY = os.environ.get('GEMINI_API_KEY')
@@ -11,7 +12,8 @@ if not GEMINI_API_KEY:
     print("Error: GEMINI_API_KEY environment variable not set.")
     exit(1)
 
-GEMINI_API_ENDPOINT = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=" + GEMINI_API_KEY
+GEMINI_MODEL = os.environ.get('GEMINI_MODEL', 'gemini-2.5-flash')  # 모델명이 바뀌면 GitHub 변수로 교체
+GEMINI_API_ENDPOINT = f"https://generativelanguage.googleapis.com/v1beta/models/{GEMINI_MODEL}:generateContent"
 
 # 워드프레스와 동일한 카테고리 구성 (slug와 name 일치)
 CATEGORY_CONFIGS = {
@@ -69,6 +71,13 @@ CATEGORY_CONFIGS = {
 PUBLISHED_HASHES_FILE = 'scripts/published_hashes.json'
 # 마크다운 파일이 저장될 폴더
 POSTS_DIR = 'src/content/posts'
+
+def yq(value, limit=None):
+    """YAML 프런트매터용 안전한 문자열 (JSON 문자열은 유효한 YAML 큰따옴표 문자열)"""
+    text = ' '.join(str(value).split())
+    if limit and len(text) > limit:
+        text = text[:limit - 1] + '…'
+    return json.dumps(text, ensure_ascii=False)
 
 def get_published_hashes():
     """기존 발행된 글들의 해시 목록을 불러옵니다."""
@@ -152,7 +161,7 @@ def generate_post_content(target_title, target_desc, category_cfg, persona):
 
 반드시 유효한 순수 JSON 형식으로만 응답하세요. 키: english_slug, title, keywords, faqs, official_source, editor_note, content_markdown
 """
-    headers = {'Content-Type': 'application/json'}
+    headers = {'Content-Type': 'application/json', 'x-goog-api-key': GEMINI_API_KEY}
     data = {"contents": [{"parts": [{"text": prompt}]}], "generationConfig": {"responseMimeType": "application/json", "temperature": 0.3}}
     
     try:
@@ -220,32 +229,49 @@ def main():
         print("❌ AI 글 생성 실패. 발행을 건너뜁니다.")
         return
 
-    # 마크다운 파일 저장
-    file_slug = ai_response_data.get('english_slug', '').lower().replace(' ', '-')
+    # 필수 필드 검증
+    for key in ('title', 'content_markdown'):
+        if not ai_response_data.get(key):
+            print(f"❌ AI 응답에 '{key}' 없음. 발행을 건너뜁니다.")
+            return
+
+    # 파일명(slug) 정리 + 중복 방지
+    file_slug = str(ai_response_data.get('english_slug', '')).lower().replace(' ', '-')
+    file_slug = re.sub(r'[^a-z0-9-]', '', file_slug).strip('-')[:50]
     if not file_slug:
-        file_slug = target_item['title'].lower().replace(' ', '-').encode('ascii', 'ignore').decode('ascii')
-        file_slug = ''.join(c for c in file_slug if c.isalnum() or c == '-')
-    file_slug = file_slug[:50] # 파일명 길이 제한
-    
+        file_slug = 'post-' + datetime.now().strftime('%Y%m%d-%H%M%S')
     filename = f"{POSTS_DIR}/{file_slug}.md"
-    
-    # 🔥 [중복 발행 100% 방지] 최종 해시 검증
+    if os.path.exists(filename):
+        file_slug = f"{file_slug}-{datetime.now().strftime('%Y%m%d%H%M')}"
+        filename = f"{POSTS_DIR}/{file_slug}.md"
+
+    # 🔥 [중복 발행 방지] 최종 해시 검증
     if target_item['url_hash'] in published_hashes:
         print(f"⚠️ 이미 발행된 해시입니다. 발행을 건너뜁니다: {target_item['title']}")
         return
 
-    # 마크다운 본문에 Astro 프런트매터 추가
-    markdown_content = f"""---
-title: "{ai_response_data['title'].replace('"', '\\"')}"
-description: "{ai_response_data['editor_note'].replace('"', '\\"')}"
-pubDate: {datetime.now().strftime('%Y-%m-%d')}
-category: "{chosen_slug}"
-source_name: "{ai_response_data['official_source']['name'].replace('"', '\\"')}"
-source_url: "{ai_response_data['official_source']['url'].replace('"', '\\"')}"
----
+    source = ai_response_data.get('official_source') or {}
+    source_name = source.get('name', '')
+    source_url = source.get('url', '')
 
-{ai_response_data['content_markdown']}
-"""
+    # f-string 안에 백슬래시를 쓰면 Python 3.11에서 SyntaxError → 값은 미리 계산
+    fm_title = yq(ai_response_data['title'])
+    fm_desc = yq(ai_response_data.get('editor_note', target_item['desc']), limit=160)
+    fm_source_name = yq(source_name)
+    fm_source_url = yq(source_url)
+    today = datetime.now().strftime('%Y-%m-%d')
+
+    markdown_content = (
+        "---\n"
+        f"title: {fm_title}\n"
+        f"description: {fm_desc}\n"
+        f"pubDate: {today}\n"
+        f"category: \"{chosen_slug}\"\n"
+        f"source_name: {fm_source_name}\n"
+        f"source_url: {fm_source_url}\n"
+        "---\n\n"
+        f"{ai_response_data['content_markdown']}\n"
+    )
     # 디렉토리 생성 (없는 경우)
     os.makedirs(POSTS_DIR, exist_ok=True)
     
