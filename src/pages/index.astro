@@ -40,14 +40,14 @@ const categoryNames: Record<string, { name: string; color: string }> = {
               </time>
             </div>
             <h3 style="margin-bottom: 10px; font-size: 1.25rem;">
-              <a href={`/posts/${post.slug}`} style="text-decoration: none; color: #0f172a; font-weight: 800;">
+              <a href={`/posts/${post.slug}/`} style="text-decoration: none; color: #0f172a; font-weight: 800;">
                 {post.data.title}
               </a>
             </h3>
             <p style="color: #475569; font-size: 0.95rem; line-height: 1.6; margin-bottom: 15px;">
               {post.data.description}
             </p>
-            <a href={`/posts/${post.slug}`} style="color: #1d4ed8; text-decoration: none; font-weight: bold; font-size: 0.9rem;">
+            <a href={`/posts/${post.slug}/`} style="color: #1d4ed8; text-decoration: none; font-weight: bold; font-size: 0.9rem;">
               상세 내용 확인하기 &rarr;
             </a>
           </article>

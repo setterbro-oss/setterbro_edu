@@ -2,11 +2,13 @@ import rss from '@astrojs/rss';
 import { getCollection } from 'astro:content';
 
 export async function GET(context) {
-  // 'posts' 또는 본인의 블로그 컨텐츠 컬렉션 이름을 적어주세요 (보통 posts 또는 blog)
-  const posts = await getCollection('posts'); 
+  const posts = (await getCollection('posts'))
+    .sort((a, b) => b.data.pubDate.valueOf() - a.data.pubDate.valueOf())
+    .slice(0, 50);
+
   return rss({
-    title: '나의 자동화 교육 블로그',
-    description: '자격증 및 국비지원 정보 제공 블로그',
+    title: '샛터형의 자격증·국비교육 트렌드센터',
+    description: '국가기술자격증, 내일배움카드 국비지원, 공무원·공기업 채용 정보',
     site: context.site,
     items: posts.map((post) => ({
       title: post.data.title,
@@ -14,5 +16,6 @@ export async function GET(context) {
       description: post.data.description,
       link: `/posts/${post.slug}/`,
     })),
+    customData: '<language>ko-kr</language>',
   });
 }

@@ -5,6 +5,13 @@ interface Props {
 }
 
 const { title, description = "2026 국가기술자격증·국비지원 내일배움카드·공무원 공기업 채용 실시간 정보 포털" } = Astro.props;
+
+// 검색엔진 소유권 확인 코드 (서치콘솔/서치어드바이저에서 받은 값을 따옴표 안에 붙여넣기, 비워두면 출력 안 됨)
+const GOOGLE_VERIFICATION = '';
+const NAVER_VERIFICATION = '';
+
+const canonicalURL = new URL(Astro.url.pathname, Astro.site);
+const fullTitle = `${title} | 샛터형의 자격증·국비교육 트렌드센터`;
 ---
 
 <!doctype html>
@@ -12,8 +19,18 @@ const { title, description = "2026 국가기술자격증·국비지원 내일배
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>{title} | 샛터형의 자격증·국비교육 트렌드센터</title>
+    <title>{fullTitle}</title>
     <meta name="description" content={description} />
+    <link rel="canonical" href={canonicalURL.href} />
+    <link rel="sitemap" href="/sitemap-index.xml" />
+    <link rel="alternate" type="application/rss+xml" title="샛터형의 자격증·국비교육 트렌드센터" href="/rss.xml" />
+    <meta property="og:type" content="website" />
+    <meta property="og:locale" content="ko_KR" />
+    <meta property="og:title" content={fullTitle} />
+    <meta property="og:description" content={description} />
+    <meta property="og:url" content={canonicalURL.href} />
+    {GOOGLE_VERIFICATION && <meta name="google-site-verification" content={GOOGLE_VERIFICATION} />}
+    {NAVER_VERIFICATION && <meta name="naver-site-verification" content={NAVER_VERIFICATION} />}
     <!-- 구글 애드센스 소유권 메타태그 (승인용) -->
     <meta name="google-adsense-account" content="ca-pub-7506668912689327" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
