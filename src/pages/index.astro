@@ -1,0 +1,59 @@
+---
+import Layout from '../layouts/layout.astro';
+import { getCollection } from 'astro:content';
+
+const posts = (await getCollection('posts')).sort(
+  (a, b) => b.data.pubDate.valueOf() - a.data.pubDate.valueOf()
+);
+
+const categoryNames: Record<string, { name: string; color: string }> = {
+  cert: { name: '국가자격증', color: '#1d4ed8' },
+  hrd: { name: '내일배움카드', color: '#059669' },
+  exam: { name: '채용고시', color: '#d97706' },
+};
+---
+
+<Layout title="홈">
+  <div style="text-align: center; margin-bottom: 40px; padding: 30px 20px; background: #ffffff; border-radius: 12px; border: 1px solid #e2e8f0;">
+    <h1 style="font-size: 1.8rem; font-weight: 800; color: #0f172a; margin-bottom: 10px;">
+      🎓 샛터형의 자격증·국비교육 트렌드센터
+    </h1>
+    <p style="color: #64748b; font-size: 1.05rem;">
+      국가기술자격증 일정부터 내일배움카드 국비지원 수당, 공무원·공기업 채용까지 실시간 팩트 정보
+    </p>
+  </div>
+
+  <section>
+    <h2 style="font-size: 1.3rem; font-weight: 800; margin-bottom: 20px; color: #1e293b;">
+      📰 실시간 최신 정보 포스팅
+    </h2>
+    <div style="display: grid; gap: 20px;">
+      {posts.map((post) => {
+        const cat = categoryNames[post.data.category] || { name: '일반', color: '#64748b' };
+        return (
+          <article style="background: #ffffff; padding: 24px; border-radius: 12px; border: 1px solid #e2e8f0; transition: transform 0.2s ease, box-shadow 0.2s ease;">
+            <div style="display: flex; gap: 10px; align-items: center; margin-bottom: 12px;">
+              <span style={`background: ${cat.color}; color: #ffffff; font-size: 0.8rem; font-weight: bold; padding: 4px 10px; border-radius: 20px;`}>
+                {cat.name}
+              </span>
+              <time style="color: #94a3b8; font-size: 0.85rem;">
+                {post.data.pubDate.toLocaleDateString('ko-KR')}
+              </time>
+            </div>
+            <h3 style="margin-bottom: 10px; font-size: 1.25rem;">
+              <a href={`/posts/${post.slug}`} style="text-decoration: none; color: #0f172a; font-weight: 800;">
+                {post.data.title}
+              </a>
+            </h3>
+            <p style="color: #475569; font-size: 0.95rem; line-height: 1.6; margin-bottom: 15px;">
+              {post.data.description}
+            </p>
+            <a href={`/posts/${post.slug}`} style="color: #1d4ed8; text-decoration: none; font-weight: bold; font-size: 0.9rem;">
+              상세 내용 확인하기 &rarr;
+            </a>
+          </article>
+        );
+      })}
+    </div>
+  </section>
+</Layout>
