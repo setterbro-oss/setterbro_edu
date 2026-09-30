@@ -8,9 +8,9 @@
     "build": "astro build",
     "preview": "astro preview"
   },
-  "dependencies": {
-    "@astrojs/rss": "4.0.19",
-    "@astrojs/sitemap": "3.1.6",
-    "astro": "4.16.19"
-  }
+ "dependencies": {
+  "@astrojs/rss": "4.0.19",
+  "@astrojs/sitemap": "3.1.6",
+  "astro": "4.16.19"
+}
 }
