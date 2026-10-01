@@ -1,17 +1,18 @@
-name: Daily Auto Post
+name: Auto Post Generator
 
 on:
   schedule:
-    # 매일 한국 시간 오전 09:30 (UTC 00:30) / 오후 19:00 (UTC 10:00)
-    - cron: '30 0,10 * * *'
-  workflow_dispatch: # 깃허브 화면에서 [글 즉시 생성] 수동 실행 버튼
-
-permissions:
-  contents: write
+    # 매일 한국시간 오전 9시 (UTC 00:00) 자동 실행 예시
+    - cron: '0 0 * * *'
+  # 운영자가 버튼을 눌러 직접 실행할 수 있도록 수동 트리거 추가
+  workflow_dispatch:
 
 jobs:
-  generate-and-post:
+  build-and-post:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write # 워크플로가 새 포스트를 커밋/푸시할 수 있도록 권한 부여
+
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
@@ -19,17 +20,24 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: '3.11'
+          python-version: '3.10'
 
-      - name: Run Post Generator
+      - name: Install Dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt || true
+
+      - name: Generate New Post
         env:
-          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }} # 필요시 등록된 시크릿 사용
         run: |
           python scripts/generate_post.py
 
-      - name: Commit and Push New Post
+      - name: Commit and Push Changes
         run: |
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
-          git add -A
-          git diff --quiet && git diff --staged --quiet || (git commit -m "Auto post: $(date '+%Y-%m-%d %H:%M')" && git push)
+          git add src/content/posts/
+          git status
+          git diff-index --quiet HEAD || git commit -m "auto: publish new blog post [skip ci]"
+          git push
