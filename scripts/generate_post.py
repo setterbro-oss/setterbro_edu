@@ -1,4 +1,6 @@
 import os
+import sys
+import time
 import json
 import requests
 import hashlib
@@ -10,10 +12,17 @@ import re
 GEMINI_API_KEY = os.environ.get('GEMINI_API_KEY')
 if not GEMINI_API_KEY:
     print("Error: GEMINI_API_KEY environment variable not set.")
-    exit(1)
+    sys.exit(1)
 
-GEMINI_MODEL = os.environ.get('GEMINI_MODEL', 'gemini-2.5-flash')  # 모델명이 바뀌면 GitHub 변수로 교체
-GEMINI_API_ENDPOINT = f"https://generativelanguage.googleapis.com/v1beta/models/{GEMINI_MODEL}:generateContent"
+# 모델명: GitHub 변수(GEMINI_MODEL)가 비어 있어도 기본값이 적용되도록 `or` 사용
+GEMINI_MODEL = os.environ.get('GEMINI_MODEL') or 'gemini-3.5-flash'
+# 기본 모델이 404(종료)일 때 순서대로 시도할 대체 모델
+FALLBACK_MODELS = ['gemini-3.1-flash-lite']
+
+
+def endpoint_for(model):
+    return f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
+
 
 # 워드프레스와 동일한 카테고리 구성 (slug와 name 일치)
 CATEGORY_CONFIGS = {
@@ -72,12 +81,14 @@ PUBLISHED_HASHES_FILE = 'scripts/published_hashes.json'
 # 마크다운 파일이 저장될 폴더
 POSTS_DIR = 'src/content/posts'
 
+
 def yq(value, limit=None):
     """YAML 프런트매터용 안전한 문자열 (JSON 문자열은 유효한 YAML 큰따옴표 문자열)"""
     text = ' '.join(str(value).split())
     if limit and len(text) > limit:
         text = text[:limit - 1] + '…'
     return json.dumps(text, ensure_ascii=False)
+
 
 def get_published_hashes():
     """기존 발행된 글들의 해시 목록을 불러옵니다."""
@@ -86,10 +97,12 @@ def get_published_hashes():
             return json.load(f)
     return []
 
+
 def save_published_hashes(hashes):
     """발행된 글의 해시 목록을 저장합니다."""
     with open(PUBLISHED_HASHES_FILE, 'w', encoding='utf-8') as f:
         json.dump(hashes, f, ensure_ascii=False, indent=2)
+
 
 def clean_feed_text(text):
     """RSS 피드 텍스트에서 HTML 태그를 제거하고 공백을 정리합니다."""
@@ -99,16 +112,17 @@ def clean_feed_text(text):
                      .replace('<a>', '').replace('</a>', '')
     return clean_text.strip()
 
+
 def get_news_from_rss(query, published_hashes):
     """구글 뉴스 RSS에서 새로운 뉴스 아이템을 가져옵니다."""
     feed_url = f'https://news.google.com/rss/search?q={requests.utils.quote(query)}&hl=ko&gl=KR&ceid=KR:ko'
     try:
         response = requests.get(feed_url, timeout=10)
-        response.raise_for_status() # HTTP 에러 발생 시 예외 처리
+        response.raise_for_status()  # HTTP 에러 발생 시 예외 처리
 
         # 간단한 XML 파싱 (외부 라이브러리 사용 안 함)
         items = []
-        for line in response.text.split('<item>')[1:]: # <item> 태그 단위로 분리
+        for line in response.text.split('<item>')[1:]:  # <item> 태그 단위로 분리
             title_match = line.find('<title>')
             link_match = line.find('<link>')
             description_match = line.find('<description>')
@@ -121,7 +135,7 @@ def get_news_from_rss(query, published_hashes):
                 title = clean_feed_text(line[title_match + len('<title>'):title_end])
                 link = clean_feed_text(line[link_match + len('<link>'):link_end])
                 description = clean_feed_text(line[description_match + len('<description>'):desc_end])
-                
+
                 # 중복 뉴스 제목 제거 (예: "- 뉴스1", "- 연합뉴스")
                 title = title.split(' - ')[0].strip()
 
@@ -129,14 +143,15 @@ def get_news_from_rss(query, published_hashes):
                     item_hash = hashlib.md5(link.encode('utf-8')).hexdigest()
                     if item_hash not in published_hashes:
                         items.append({'title': title, 'desc': description, 'url_hash': item_hash})
-                        return items[0] # 첫 번째 새로운 아이템만 반환
+                        return items[0]  # 첫 번째 새로운 아이템만 반환
 
     except requests.exceptions.RequestException as e:
         print(f"RSS fetch error: {e}")
     return None
 
+
 def generate_post_content(target_title, target_desc, category_cfg, persona):
-    """Gemini API를 사용하여 글 내용을 생성합니다."""
+    """Gemini API를 사용하여 글 내용을 생성합니다. (재시도 + 대체 모델 폴백)"""
     prompt = f"""당신은 [{category_cfg['name']}] 분야 전문 [{persona['role']}]입니다.
 핵심 주제: [제목] {target_title} / [요약] {target_desc}
 집필 스타일: {persona['tone']}
@@ -162,22 +177,51 @@ def generate_post_content(target_title, target_desc, category_cfg, persona):
 반드시 유효한 순수 JSON 형식으로만 응답하세요. 키: english_slug, title, keywords, faqs, official_source, editor_note, content_markdown
 """
     headers = {'Content-Type': 'application/json', 'x-goog-api-key': GEMINI_API_KEY}
-    data = {"contents": [{"parts": [{"text": prompt}]}], "generationConfig": {"responseMimeType": "application/json", "temperature": 0.3}}
-    
-    try:
-        response = requests.post(GEMINI_API_ENDPOINT, headers=headers, data=json.dumps(data), timeout=90)
-        response.raise_for_status()
-        
-        raw_text = response.json()['candidates'][0]['content']['parts'][0]['text']
-        clean_json = raw_text.replace('```json', '').replace('```', '').strip()
-        return json.loads(clean_json)
-    except Exception as e:
-        print(f"Gemini API error: {e}")
-        return None
+    data = {
+        "contents": [{"parts": [{"text": prompt}]}],
+        "generationConfig": {"responseMimeType": "application/json", "temperature": 0.3}
+    }
+
+    models = [GEMINI_MODEL] + [m for m in FALLBACK_MODELS if m != GEMINI_MODEL]
+
+    for model in models:
+        for attempt in range(1, 4):
+            try:
+                response = requests.post(
+                    endpoint_for(model), headers=headers,
+                    data=json.dumps(data), timeout=90
+                )
+
+                # 404: 모델이 종료/변경됨 → 재시도 없이 다음 모델로
+                if response.status_code == 404:
+                    print(f"⚠️ 모델 사용 불가(404): {model} → 다음 모델로 전환합니다.")
+                    break
+
+                # 429/5xx: 일시적 오류 → 대기 후 재시도
+                if response.status_code in (429, 500, 502, 503, 504):
+                    wait = 15 * attempt
+                    print(f"⚠️ {model} 일시 오류({response.status_code}), {wait}초 후 재시도 ({attempt}/3)")
+                    time.sleep(wait)
+                    continue
+
+                response.raise_for_status()
+
+                raw_text = response.json()['candidates'][0]['content']['parts'][0]['text']
+                clean_json = raw_text.replace('```json', '').replace('```', '').strip()
+                result = json.loads(clean_json)
+                print(f"✅ 글 생성 성공 (모델: {model})")
+                return result
+
+            except Exception as e:
+                print(f"Gemini API error ({model}, 시도 {attempt}/3): {e}")
+                time.sleep(5 * attempt)
+
+    return None
+
 
 def main():
     published_hashes = get_published_hashes()
-    
+
     # 카테고리 순환 로직 (가장 오래된 발행 카테고리 선택)
     category_slugs = list(CATEGORY_CONFIGS.keys())
     # TODO: GitHub API를 사용하여 각 카테고리의 최신 발행글 날짜를 가져와야 함
@@ -199,7 +243,7 @@ def main():
             if lt_hash not in published_hashes:
                 target_item = {'title': lt_item['title'], 'desc': lt_item['desc'], 'url_hash': lt_hash}
                 break
-    
+
     # 3차: 모든 글감 고갈 시 동적 AI 주제 생성
     if not target_item:
         dynamic_seed = datetime.now().strftime('%Y년 %m월 ') + category_cfg['name'] + ' 실시간 개정안 핵심 가이드'
@@ -210,8 +254,8 @@ def main():
         }
 
     if not target_item:
-        print("❌ 모든 글감 소진 및 새로운 글감 생성 실패. 발행을 건너뜁니다.")
-        return
+        print("❌ 모든 글감 소진 및 새로운 글감 생성 실패.")
+        sys.exit(1)
 
     print(f"🔍 확정된 글감: {target_item['title']}")
 
@@ -226,14 +270,14 @@ def main():
     ai_response_data = generate_post_content(target_item['title'], target_item['desc'], category_cfg, selected_persona)
 
     if not ai_response_data:
-        print("❌ AI 글 생성 실패. 발행을 건너뜁니다.")
-        return
+        print("❌ AI 글 생성 실패. 워크플로우를 실패 처리합니다.")
+        sys.exit(1)
 
     # 필수 필드 검증
     for key in ('title', 'content_markdown'):
         if not ai_response_data.get(key):
-            print(f"❌ AI 응답에 '{key}' 없음. 발행을 건너뜁니다.")
-            return
+            print(f"❌ AI 응답에 '{key}' 없음. 워크플로우를 실패 처리합니다.")
+            sys.exit(1)
 
     # 파일명(slug) 정리 + 중복 방지
     file_slug = str(ai_response_data.get('english_slug', '')).lower().replace(' ', '-')
@@ -274,7 +318,7 @@ def main():
     )
     # 디렉토리 생성 (없는 경우)
     os.makedirs(POSTS_DIR, exist_ok=True)
-    
+
     with open(filename, 'w', encoding='utf-8') as f:
         f.write(markdown_content)
 
@@ -282,6 +326,7 @@ def main():
     save_published_hashes(published_hashes)
 
     print(f"🎉 글 발행 성공: {filename}")
+
 
 if __name__ == "__main__":
     main()
