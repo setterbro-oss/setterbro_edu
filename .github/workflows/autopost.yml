@@ -39,5 +39,5 @@ jobs:
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
           git add src/content/posts/
-          git diff-index --quiet HEAD || git commit -m "auto: publish new blog post [skip ci]"
+          git diff-index --quiet HEAD || 
           git push
