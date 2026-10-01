@@ -1,6 +1,8 @@
 ---
 import Layout from '../../layouts/Layout.astro';
+import AdSlot from '../../components/AdSlot.astro';
 import { getCollection } from 'astro:content';
+import { SITE_NAME, SHORT_NAME, OG_IMAGE_PATH, AD_SLOT_1, AD_SLOT_2, SHOW_CALCULATORS } from '../../config';
 
 export async function getStaticPaths() {
   const posts = await getCollection('posts');
@@ -40,10 +42,50 @@ const cat = categoryMeta[post.data.category] || {
   source: post.data.source_name || '공식 기관',
   url: post.data.source_url || '#',
 };
+
+const canonical = new URL(Astro.url.pathname, Astro.site).href;
+const catUrl = new URL(`/category/${post.data.category}/`, Astro.site).href;
+const iso = post.data.pubDate.toISOString();
+const jsonLd = [
+  {
+    '@context': 'https://schema.org',
+    '@type': 'Article',
+    headline: post.data.title,
+    description: post.data.description,
+    datePublished: iso,
+    dateModified: iso,
+    inLanguage: 'ko-KR',
+    mainEntityOfPage: canonical,
+    image: new URL(OG_IMAGE_PATH, Astro.site).href,
+    author: { '@type': 'Organization', name: SHORT_NAME },
+    publisher: { '@type': 'Organization', name: SITE_NAME },
+  },
+  {
+    '@context': 'https://schema.org',
+    '@type': 'BreadcrumbList',
+    itemListElement: [
+      { '@type': 'ListItem', position: 1, name: '홈', item: new URL('/', Astro.site).href },
+      { '@type': 'ListItem', position: 2, name: cat.name, item: catUrl },
+      { '@type': 'ListItem', position: 3, name: post.data.title, item: canonical },
+    ],
+  },
+];
+
+// 관련 글 (같은 카테고리 우선, 부족하면 최신글로 채움) → 체류시간·페이지뷰 증가
+const allPosts = await getCollection('posts');
+const byDate = (a, b) => b.data.pubDate.valueOf() - a.data.pubDate.valueOf();
+const others = allPosts.filter((p) => p.slug !== post.slug).sort(byDate);
+const related = [
+  ...others.filter((p) => p.data.category === post.data.category),
+  ...others.filter((p) => p.data.category !== post.data.category),
+].slice(0, 3);
 ---
 
-<Layout title={post.data.title} description={post.data.description}>
+<Layout title={post.data.title} description={post.data.description} type="article" pubDate={post.data.pubDate} jsonLd={jsonLd}>
   <article class="post-container">
+    <nav class="crumbs" aria-label="현재 위치">
+      <a href="/">홈</a> &rsaquo; <a href={`/category/${post.data.category}/`}>{cat.name}</a>
+    </nav>
     <div class="post-meta">
       <span class="badge" style={`background: ${cat.color}`}>{cat.name}</span>
       <time>{post.data.pubDate.toLocaleDateString('ko-KR')}</time>
@@ -51,19 +93,21 @@ const cat = categoryMeta[post.data.category] || {
 
     <h1 class="post-title">{post.data.title}</h1>
 
-    <!-- 팩트체크 기준일 메타 박스 -->
+    <!-- 출처·게시일 안내 박스 (사실만 표기) -->
     <div class="verify-box">
-      <span>📅 <strong>정보 기준일:</strong> 2026년 최신 공시 기준</span>
+      <span>📅 <strong>게시일:</strong> {post.data.pubDate.toLocaleDateString('ko-KR')}</span>
       <span>🏛️ <strong>확인 출처:</strong> {cat.source}</span>
-      <span>🔍 <strong>검증 책임:</strong> 샛터형 에디터</span>
+      <span>ℹ️ 제도·일정·금액은 변경될 수 있으니 공식 출처에서 최종 확인하세요.</span>
     </div>
 
     <div class="post-body">
       <Content />
     </div>
 
+    <AdSlot slot={AD_SLOT_1} />
+
     <!-- 카테고리별 인터랙티브 계산기 위젯 -->
-    {post.data.category === 'cert' && (
+    {SHOW_CALCULATORS && post.data.category === 'cert' && (
       <div class="calc-box">
         <h3>🧮 국가자격증 응시자격 모의 자가진단기</h3>
         <p>학력과 실무 경력을 선택하여 기사/산업기사 응시 자격을 모의 확인하세요.</p>
@@ -81,7 +125,7 @@ const cat = categoryMeta[post.data.category] || {
       </div>
     )}
 
-    {post.data.category === 'hrd' && (
+    {SHOW_CALCULATORS && post.data.category === 'hrd' && (
       <div class="calc-box">
         <h3>🧮 내일배움카드 훈련장려금 모의 계산기</h3>
         <p>140시간 이상 훈련과정 참여 시 출석일수별 예상 월 수당을 산출합니다.</p>
@@ -98,7 +142,7 @@ const cat = categoryMeta[post.data.category] || {
       </div>
     )}
 
-    {post.data.category === 'exam' && (
+    {SHOW_CALCULATORS && post.data.category === 'exam' && (
       <div class="calc-box">
         <h3>🧮 공무원·공기업 채용시험 가산점 모의계산기</h3>
         <p>보유하신 공통 자격증을 선택하여 필기시험 가산점을 산출합니다.</p>
@@ -117,10 +161,26 @@ const cat = categoryMeta[post.data.category] || {
         <strong style="color:#003366;">🏛️ 관련 공식 기관 안내</strong>
         <p style="margin:4px 0 0; color:#475569; font-size:0.85rem;">상세 모집 요강 및 원서 접수는 주관 기관 공식 누리집에서 확인하세요.</p>
       </div>
-      <a href={cat.url} target="_blank" rel="noopener noreferrer nofollow" class="source-btn">
+      <a href={cat.url} target="_blank" rel="noopener noreferrer" class="source-btn">
         👉 {cat.source} 바로가기
       </a>
     </div>
+
+    {related.length > 0 && (
+      <section class="related">
+        <h2>함께 보면 좋은 글</h2>
+        <ul>
+          {related.map((r) => (
+            <li>
+              <a href={`/posts/${r.slug}/`}>{r.data.title}</a>
+              <time>{r.data.pubDate.toLocaleDateString('ko-KR')}</time>
+            </li>
+          ))}
+        </ul>
+      </section>
+    )}
+
+    <AdSlot slot={AD_SLOT_2} />
   </article>
 
   <script is:inline>
@@ -180,8 +240,10 @@ const cat = categoryMeta[post.data.category] || {
     .post-body :global(h2) { font-size: 1.35rem; font-weight: 800; margin: 35px 0 15px; color: #0f172a; border-left: 4px solid #1d4ed8; padding-left: 12px; }
     .post-body :global(h3) { font-size: 1.15rem; font-weight: 700; margin: 25px 0 12px; color: #1e293b; }
     .post-body :global(p) { margin-bottom: 1.4em; color: #334155; font-size: 1.05rem; }
-    .post-body :global(table) { width: 100%; border-collapse: collapse; margin: 25px 0; font-size: 0.95rem; }
-    .post-body :global(th), .post-body :global(td) { border: 1px solid #cbd5e1; padding: 10px 12px; text-align: left; }
+    .post-body { overflow-wrap: anywhere; }
+    .post-body :global(p), .post-body :global(li) { word-break: keep-all; }
+    .post-body :global(table) { display: block; max-width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch; border-collapse: collapse; margin: 25px 0; font-size: 0.95rem; }
+    .post-body :global(th), .post-body :global(td) { border: 1px solid #cbd5e1; padding: 10px 12px; text-align: left; min-width: 90px; }
     .post-body :global(th) { background: #f1f5f9; font-weight: bold; color: #0f172a; }
     .calc-box { margin: 40px 0; padding: 25px; background: #f8fafc; border: 2px solid #1d4ed8; border-radius: 10px; }
     .calc-box h3 { margin-top: 0; margin-bottom: 8px; color: #1e3a8a; }
@@ -192,8 +254,17 @@ const cat = categoryMeta[post.data.category] || {
     .calc-res { margin-top: 15px; font-weight: bold; font-size: 0.95rem; line-height: 1.5; }
     .source-box { margin: 40px 0 20px; padding: 18px 20px; background: #f0f7ff; border: 1px solid #cce3fd; border-radius: 8px; display: flex; justify-content: space-between; align-items: center; gap: 15px; flex-wrap: wrap; }
     .source-btn { background: #003366; color: #fff; padding: 10px 18px; border-radius: 6px; text-decoration: none; font-weight: bold; font-size: 0.9rem; }
+    .crumbs { font-size: 0.85rem; color: #64748b; margin-bottom: 12px; }
+    .crumbs a { color: #64748b; text-decoration: none; }
+    .crumbs a:hover { text-decoration: underline; }
+    .related { margin: 40px 0 0; padding-top: 24px; border-top: 1px solid #e2e8f0; }
+    .related h2 { font-size: 1.1rem; font-weight: 800; margin-bottom: 12px; color: #0f172a; }
+    .related ul { list-style: none; display: grid; gap: 10px; }
+    .related li { display: flex; flex-direction: column; gap: 2px; }
+    .related a { color: #1d4ed8; font-weight: 700; text-decoration: none; line-height: 1.45; }
+    .related time { color: #94a3b8; font-size: 0.8rem; }
     @media (max-width: 640px) {
-      .post-container { padding: 20px 16px; }
+      .post-container { padding: 20px 14px; }
       .post-title { font-size: 1.4rem; }
       .calc-row { grid-template-columns: 1fr; }
     }

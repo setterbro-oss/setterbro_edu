@@ -157,6 +157,8 @@ def generate_post_content(target_title, target_desc, category_cfg, persona):
 집필 스타일: {persona['tone']}
 
 [💡 구글 Helpful Content & YMYL 팩트체크 절대 준수 지침]
+- 🚨 [근거 없는 구체화 금지]: 제공된 정보는 위 '제목'과 '요약'뿐입니다. 여기에 없는 구체적 수치·날짜·금액·기관의 결정·절차 단계·심의 과정을 절대 지어내지 마세요. 확실하지 않은 내용은 '정확한 내용은 공식 공고에서 확인이 필요합니다'로 쓰고, 일반적으로 알려진 제도 개념·확인 방법·주의사항 중심으로 작성하세요.
+- 🚨 [일정·금액 표기]: 2026년 시험 일정, 지원 금액, 경쟁률 등 구체 수치는 확실한 경우에만 쓰고, 아니면 해당 공식 기관에서 확인하라고 안내하세요. 표(table)도 확실한 항목만 채우세요.
 - 🚨 [수치 날조 및 과장 절대 금지]: 공인되지 않은 임의의 금리, 비현실적인 환급액을 날조하지 마세요. 뉴스 및 제도상 확인 가능한 객관적 사실만 서술하세요.
 - 🚨 [가짜 경험담 금지]: '김 모 씨', '현장에서 만나본 사례' 등 실재하지 않는 가상의 사용자 인터뷰를 절대 지어내지 마세요.
 - 🚨 [제목 작성 규칙]: 제목 첫머리에 '모르면 있는', '모르면 잃는', '즉시 확인' 같은 특정 어구를 도배하지 마세요. '2026 총정리', '신청 자격 가이드', '놓치면 손해 보는', '실제 환급액 기준', '지원 요건 핵심 요약' 등 자연스럽게 작성하세요. (45자 내외)
@@ -169,12 +171,13 @@ def generate_post_content(target_title, target_desc, category_cfg, persona):
 4. faqs: 자주 묻는 질문 2가지 [{{'q': '질문', 'a': '답변'}}]
 5. official_source: 관련 정부/공공기관 명칭과 누리집 주소 객체 (예: {{'name': '한국산업인력공단 큐넷', 'url': 'https://www.q-net.or.kr'}})
 6. editor_note: 실무 행정 체크리스트 및 필수 주의사항 3~4문장
+6-1. meta_description: 검색 결과에 노출될 글 요약 1문장 (80~130자, 따옴표·줄바꿈 없이, 본문 핵심을 구체적으로)
 7. content_markdown: (HTML이 아닌 Markdown 형식으로 본문 작성)
    - 도입부: <div style='background:#f8f9fa; padding:15px; border-left:4px solid #003366; margin-bottom:20px;'>핵심 3줄 요약 박스</div>
    - 본문 중간: 대상자별 지원 금액, 소득 기준이 담긴 깔끔한 <table> 태그 표 필수 포함
    - h2 태그 3개 이상, 분량 1,800자 이상
 
-반드시 유효한 순수 JSON 형식으로만 응답하세요. 키: english_slug, title, keywords, faqs, official_source, editor_note, content_markdown
+반드시 유효한 순수 JSON 형식으로만 응답하세요. 키: english_slug, title, keywords, faqs, official_source, editor_note, meta_description, content_markdown
 """
     headers = {'Content-Type': 'application/json', 'x-goog-api-key': GEMINI_API_KEY}
     data = {
@@ -224,9 +227,18 @@ def main():
 
     # 카테고리 순환 로직 (가장 오래된 발행 카테고리 선택)
     category_slugs = list(CATEGORY_CONFIGS.keys())
-    # TODO: GitHub API를 사용하여 각 카테고리의 최신 발행글 날짜를 가져와야 함
-    #       현재는 단순 순환 방식 (또는 랜덤 선택)
-    chosen_slug = random.choice(category_slugs)
+    # 글 수가 가장 적은 카테고리를 우선 선택 (동률이면 랜덤) → 카테고리 균형 유지
+    counts = {slug: 0 for slug in category_slugs}
+    if os.path.isdir(POSTS_DIR):
+        for fname in os.listdir(POSTS_DIR):
+            if not fname.endswith('.md'):
+                continue
+            with open(os.path.join(POSTS_DIR, fname), 'r', encoding='utf-8') as pf:
+                m = re.search(r'^category:\s*["\']?(\w+)["\']?', pf.read(), re.M)
+            if m and m.group(1) in counts:
+                counts[m.group(1)] += 1
+    min_count = min(counts.values())
+    chosen_slug = random.choice([k for k, v in counts.items() if v == min_count])
     category_cfg = CATEGORY_CONFIGS[chosen_slug]
 
     print(f"⏰ 선택된 카테고리: {category_cfg['name']}")
@@ -300,10 +312,19 @@ def main():
 
     # f-string 안에 백슬래시를 쓰면 Python 3.11에서 SyntaxError → 값은 미리 계산
     fm_title = yq(ai_response_data['title'])
-    fm_desc = yq(ai_response_data.get('editor_note', target_item['desc']), limit=160)
+    fm_desc = yq(ai_response_data.get('meta_description') or ai_response_data.get('editor_note') or target_item['desc'], limit=160)
     fm_source_name = yq(source_name)
     fm_source_url = yq(source_url)
     today = datetime.now().strftime('%Y-%m-%d')
+
+    # FAQ를 본문 끝에 추가 (체류시간·검색 유입 보강)
+    faq_md = ''
+    valid_faqs = [f for f in (ai_response_data.get('faqs') or [])
+                  if isinstance(f, dict) and f.get('q') and f.get('a')]
+    if valid_faqs:
+        faq_md = '\n\n## 자주 묻는 질문\n\n' + '\n\n'.join(
+            f"**Q. {' '.join(str(f['q']).split())}**\n\nA. {' '.join(str(f['a']).split())}" for f in valid_faqs
+        )
 
     markdown_content = (
         "---\n"
@@ -314,7 +335,7 @@ def main():
         f"source_name: {fm_source_name}\n"
         f"source_url: {fm_source_url}\n"
         "---\n\n"
-        f"{ai_response_data['content_markdown']}\n"
+        f"{ai_response_data['content_markdown']}{faq_md}\n"
     )
     # 디렉토리 생성 (없는 경우)
     os.makedirs(POSTS_DIR, exist_ok=True)

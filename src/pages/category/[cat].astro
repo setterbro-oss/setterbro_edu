@@ -17,14 +17,14 @@ const posts = (await getCollection('posts', ({ data }) => data.category === cat)
 );
 ---
 
-<Layout title={name}>
+<Layout title={`${name} 정보 모음`} description={`${name} 관련 최신 글 목록입니다. 공식 출처 링크와 함께 정리합니다.`} noindex={posts.length === 0}>
   <h1 style="font-size: 1.6rem; font-weight: 800; margin-bottom: 20px; color: #0f172a;">{name}</h1>
   {posts.length === 0 && <p style="color:#64748b;">아직 등록된 글이 없습니다.</p>}
   <div style="display: grid; gap: 16px;">
     {posts.map((post) => (
       <article style="background:#fff; padding:22px; border-radius:12px; border:1px solid #e2e8f0;">
         <time style="color:#94a3b8; font-size:0.85rem;">{post.data.pubDate.toLocaleDateString('ko-KR')}</time>
-        <h2 style="margin:6px 0 8px; font-size:1.2rem;">
+        <h2 style="margin:6px 0 8px; font-size:1.2rem; line-height:1.4;">
           <a href={`/posts/${post.slug}/`} style="text-decoration:none; color:#0f172a; font-weight:800;">{post.data.title}</a>
         </h2>
         <p style="color:#475569; font-size:0.95rem;">{post.data.description}</p>
