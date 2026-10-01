@@ -2,16 +2,16 @@ name: Auto Post Generator
 
 on:
   schedule:
-    # 매일 한국시간 오전 9시 (UTC 00:00) 자동 실행 예시
+    # 매일 한국시간 오전 9시 (UTC 00:00) 자동 실행
     - cron: '0 0 * * *'
-  # 운영자가 버튼을 눌러 직접 실행할 수 있도록 수동 트리거 추가
+  # GitHub 화면에서 수동 버튼(Run workflow)으로 즉시 실행되게 설정
   workflow_dispatch:
 
 jobs:
   build-and-post:
     runs-on: ubuntu-latest
     permissions:
-      contents: write # 워크플로가 새 포스트를 커밋/푸시할 수 있도록 권한 부여
+      contents: write # Git push 권한 문제 완전히 해결
 
     steps:
       - name: Checkout Repository
@@ -25,11 +25,12 @@ jobs:
       - name: Install Dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install -r requirements.txt || true
+          if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
 
       - name: Generate New Post
         env:
-          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }} # 필요시 등록된 시크릿 사용
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
         run: |
           python scripts/generate_post.py
 
@@ -38,6 +39,5 @@ jobs:
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
           git add src/content/posts/
-          git status
           git diff-index --quiet HEAD || git commit -m "auto: publish new blog post [skip ci]"
           git push
