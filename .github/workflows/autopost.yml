@@ -4,14 +4,14 @@ on:
   schedule:
     # 매일 한국시간 오전 9시 (UTC 00:00) 자동 실행
     - cron: '0 0 * * *'
-  # GitHub 화면에서 수동 버튼(Run workflow)으로 즉시 실행되게 설정
+  # GitHub 화면에서 수동 버튼(Run workflow)으로 즉시 실행
   workflow_dispatch:
 
 jobs:
   build-and-post:
     runs-on: ubuntu-latest
     permissions:
-      contents: write # Git push 권한 문제 완전히 해결
+      contents: write # Git push 권한 부여
 
     steps:
       - name: Checkout Repository
@@ -25,7 +25,7 @@ jobs:
       - name: Install Dependencies
         run: |
           python -m pip install --upgrade pip
-          if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+          pip install requests
 
       - name: Generate New Post
         env:
