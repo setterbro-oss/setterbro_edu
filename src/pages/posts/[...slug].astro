@@ -1,47 +1,93 @@
 ---
 import { getCollection } from 'astro:content';
-import Layout from '../layouts/Layout.astro';
+import Layout from '../../layouts/Layout.astro';
+import AdSlot from '../../components/AdSlot.astro';
 
-const posts = await getCollection('posts');
-const sortedPosts = posts.sort((a, b) => new Date(b.data.date).getTime() - new Date(a.data.date).getTime());
+export async function getStaticPaths() {
+  const posts = await getCollection('posts');
+  return posts.map(entry => ({
+    params: { slug: entry.slug },
+    props: { entry, allPosts: posts },
+  }));
+}
+
+const { entry, allPosts } = Astro.props;
+const { Content } = await entry.render();
+
+const relatedPosts = allPosts
+  .filter(p => p.slug !== entry.slug)
+  .slice(0, 2);
 ---
 
-<Layout title="샛터형 자격증·국비교육 트렌드센터">
-  <div class="card" style="text-align: center; padding: 32px 16px; margin-bottom: 24px;">
-    <h1 style="font-size: 22px; font-weight: 800; color: #0f172a; margin-bottom: 8px; display: flex; align-items: center; justify-content: center; gap: 8px;">
-      <span>🎓</span> 샛터형의 자격증·국비교육 트렌드센터
-    </h1>
-    <p style="font-size: 13px; color: #64748b;">
-      국가기술자격증 일정부터 내일배움카드 국비지원, 공무원·공기업 채용까지 공식 출처 링크와 함께 정리합니다.
-    </p>
-  </div>
+<Layout title={entry.data.title} description={entry.data.description}>
+  <article class="card" style="padding: 32px;">
+    <header style="margin-bottom: 24px;">
+      <span style="background-color: #10b981; color: #ffffff; font-size: 11px; font-weight: 700; padding: 4px 10px; border-radius: 6px; display: inline-block; margin-bottom: 12px;">
+        내일배움카드
+      </span>
+      
+      <h1 style="font-size: 26px; font-weight: 800; color: #0f172a; line-height: 1.35; margin-bottom: 16px;">
+        {entry.data.title}
+      </h1>
 
-  <h2 style="font-size: 16px; font-weight: 800; color: #0f172a; margin-bottom: 16px; display: flex; align-items: center; gap: 6px;">
-    📰 최신 정보 포스팅
-  </h2>
-
-  <div style="display: flex; flex-direction: column; gap: 16px;">
-    {sortedPosts.map(post => (
-      <article class="card">
-        <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
-          <span style="background-color: #10b981; color: #ffffff; font-size: 10px; font-weight: 700; padding: 2px 8px; border-radius: 4px;">
-            {post.data.category || '국비지원'}
-          </span>
-          <span style="font-size: 11px; color: #94a3b8;">{post.data.date}</span>
+      <div style="background-color: #f8fafc; border: 1px solid #f1f5f9; padding: 16px; border-radius: 12px; font-size: 12px; color: #475569; margin-bottom: 16px;">
+        <div style="display: flex; gap: 16px; margin-bottom: 6px; flex-wrap: wrap;">
+          <span>📅 게시일: {entry.data.date}</span>
+          <span>🏫 확인 출처: 고용노동부 직업훈련포털</span>
         </div>
+        <p style="color: #64748b;">ℹ️ 제도·일정·금액은 변경될 수 있으니 공식 출처에서 최종 확인하세요.</p>
+      </div>
 
-        <h3 style="font-size: 18px; font-weight: 800; color: #0f172a; margin-bottom: 8px; line-height: 1.4;">
-          <a href={`/posts/${post.slug}`} style="color: #0f172a;">{post.data.title}</a>
-        </h3>
+      <div style="display: flex; gap: 8px;">
+        <button onclick="shareKakao()" style="background-color: #facc15; color: #422006; border: none; padding: 6px 14px; border-radius: 8px; font-size: 12px; font-weight: 700; cursor: pointer;">
+          🟡 카톡·SNS 공유
+        </button>
+        <button onclick="copyLink()" style="background-color: #f1f5f9; border: 1px solid #e2e8f0; color: #334155; padding: 6px 14px; border-radius: 8px; font-size: 12px; font-weight: 600; cursor: pointer;">
+          🔗 링크 복사
+        </button>
+      </div>
+    </header>
 
-        <p style="font-size: 13px; color: #64748b; margin-bottom: 16px; line-height: 1.5;">
-          {post.data.description}
-        </p>
+    <div style="font-size: 15px; color: #334155; line-height: 1.7; margin-bottom: 32px;">
+      <Content />
+    </div>
 
-        <a href={`/posts/${post.slug}`} style="font-size: 12px; font-weight: 700; color: #9333ea; display: inline-flex; align-items: center; gap: 4px;">
-          상세 내용 확인하기 →
-        </a>
-      </article>
-    ))}
-  </div>
+    <AdSlot slotId="AD_SLOT_1" />
+
+    <section style="margin-top: 32px; padding-top: 24px; border-top: 1px solid #f1f5f9;">
+      <h3 style="font-size: 14px; font-weight: 700; color: #0f172a; margin-bottom: 12px;">💡 관련 추천 포스팅</h3>
+      <div style="display: flex; flex-direction: column; gap: 10px;">
+        {relatedPosts.map(post => (
+          <a href={`/posts/${post.slug}`} style="font-size: 13px; font-weight: 700; color: #2563eb;">
+            {post.data.title}
+          </a>
+        ))}
+      </div>
+    </section>
+
+    <AdSlot slotId="AD_SLOT_2" />
+  </article>
+
+  <script is:inline>
+    function copyLink() {
+      navigator.clipboard.writeText(window.location.href);
+      alert('게시글 주소가 복사되었습니다.');
+    }
+
+    function shareKakao() {
+      if (window.Kakao && window.Kakao.isInitialized()) {
+        window.Kakao.Share.sendDefault({
+          objectType: 'feed',
+          content: {
+            title: document.title,
+            description: '자격증 및 국비지원 핵심 정보를 확인하세요.',
+            imageUrl: window.location.origin + '/og-default.png',
+            link: { mobileWebUrl: window.location.href, webUrl: window.location.href },
+          },
+        });
+      } else {
+        copyLink();
+      }
+    }
+  </script>
 </Layout>
