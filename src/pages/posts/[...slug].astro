@@ -14,32 +14,42 @@ export async function getStaticPaths() {
 const { entry, allPosts } = Astro.props;
 const { Content } = await entry.render();
 
-// 관련글 추출 (현재 글 제외 최근 4개)
 const relatedPosts = allPosts
   .filter(p => p.slug !== entry.slug)
-  .slice(0, 4);
+  .slice(0, 2);
 ---
 
 <Layout title={entry.data.title} description={entry.data.description}>
-  <article class="bg-white p-6 md:p-8 rounded-xl border border-gray-200 shadow-sm">
-    <header class="mb-6 border-b pb-4">
-      <h1 class="text-2xl md:text-3xl font-bold text-gray-900 mb-3">{entry.data.title}</h1>
-      <div class="flex items-center text-xs text-gray-500 space-x-4">
-        <span>📅 작성일: {entry.data.date}</span>
-        <span>✍️ 출처: 샛터형의 경제 트렌드센터</span>
+  <article class="bg-white p-6 md:p-8 rounded-2xl border border-gray-100 shadow-sm space-y-6">
+    <!-- 상단 뱃지 및 제목 -->
+    <header class="space-y-3">
+      <span class="inline-block bg-emerald-500 text-white text-[11px] font-bold px-2.5 py-1 rounded-md">
+        내일배움카드
+      </span>
+      <h1 class="text-2xl md:text-3xl font-extrabold text-gray-900 leading-tight">
+        {entry.data.title}
+      </h1>
+      
+      <!-- 상단 요약 박스 -->
+      <div class="bg-slate-50 border border-slate-100 p-4 rounded-xl text-xs text-gray-600 space-y-1.5">
+        <div class="flex items-center gap-4">
+          <span>📅 게시일: {entry.data.date}</span>
+          <span>🏫 확인 출처: 고용노동부 직업훈련포털</span>
+        </div>
+        <p class="text-gray-500">ℹ️ 제도·일정·금액은 변경될 수 있으니 공식 출처에서 최종 확인하세요.</p>
       </div>
 
-      <!-- 공유 및 링크 복사 버튼 -->
-      <div class="mt-4 flex items-center gap-2">
+      <!-- 공유 및 복사 버튼 -->
+      <div class="flex items-center gap-2 pt-2">
         <button 
           onclick="shareKakao()"
-          class="bg-yellow-400 text-yellow-950 px-3 py-1.5 rounded-md text-xs font-bold hover:bg-yellow-500 transition"
+          class="bg-yellow-400 text-yellow-950 px-3 py-1.5 rounded-lg text-xs font-bold hover:bg-yellow-500 transition flex items-center gap-1 shadow-sm"
         >
-          🟡 카톡-SNS 공유
+          🟡 카톡·SNS 공유
         </button>
         <button 
           onclick="copyLink()"
-          class="bg-gray-100 border border-gray-300 text-gray-700 px-3 py-1.5 rounded-md text-xs font-semibold hover:bg-gray-200 transition"
+          class="bg-gray-100 border border-gray-200 text-gray-700 px-3 py-1.5 rounded-lg text-xs font-semibold hover:bg-gray-200 transition flex items-center gap-1"
         >
           🔗 링크 복사
         </button>
@@ -47,27 +57,27 @@ const relatedPosts = allPosts
     </header>
 
     <!-- 본문 내용 -->
-    <div class="prose max-w-none mb-8 text-gray-800">
+    <div class="prose prose-slate max-w-none text-sm md:text-base leading-relaxed text-gray-700">
       <Content />
     </div>
 
-    <!-- 광고 배치 1 (본문 하단) -->
+    <!-- 광고 배치 1 -->
     <AdSlot slotId="AD_SLOT_1" />
 
-    <!-- 관련 추천 포스팅 -->
-    <section class="mt-10 pt-6 border-t border-gray-200">
-      <h3 class="text-lg font-bold text-gray-900 mb-4">💡 관련 추천 포스팅</h3>
-      <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+    <!-- 하단 함께 보면 좋은 글 -->
+    <section class="pt-6 border-t border-gray-100">
+      <h3 class="text-sm font-bold text-gray-900 mb-3">함께 보면 좋은 글</h3>
+      <div class="space-y-2">
         {relatedPosts.map(post => (
-          <a href={`/posts/${post.slug}`} class="p-3 border rounded-lg hover:border-blue-400 block transition">
-            <h4 class="text-sm font-bold text-gray-800 line-clamp-2">{post.data.title}</h4>
-            <span class="text-xs text-gray-400 block mt-1">{post.data.date}</span>
+          <a href={`/posts/${post.slug}`} class="block group">
+            <h4 class="text-xs font-bold text-purple-700 group-hover:underline">{post.data.title}</h4>
+            <span class="text-[10px] text-gray-400">{post.data.date}</span>
           </a>
         ))}
       </div>
     </section>
 
-    <!-- 광고 배치 2 (관련글 하단) -->
+    <!-- 광고 배치 2 -->
     <AdSlot slotId="AD_SLOT_2" />
   </article>
 
@@ -83,7 +93,7 @@ const relatedPosts = allPosts
           objectType: 'feed',
           content: {
             title: document.title,
-            description: '샛터형의 경제 트렌드센터에서 핵심 정보를 확인하세요.',
+            description: '자격증 및 국비지원 핵심 정보를 확인하세요.',
             imageUrl: window.location.origin + '/og-default.png',
             link: { mobileWebUrl: window.location.href, webUrl: window.location.href },
           },
