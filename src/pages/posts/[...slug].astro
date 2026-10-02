@@ -1,272 +1,74 @@
 ---
-import Layout from '../../layouts/Layout.astro';
-import AdSlot from '../../components/AdSlot.astro';
 import { getCollection } from 'astro:content';
-import { SITE_NAME, SHORT_NAME, OG_IMAGE_PATH, AD_SLOT_1, AD_SLOT_2, SHOW_CALCULATORS } from '../../config';
+import Layout from '../../layouts/Layout.astro';
 
 export async function getStaticPaths() {
   const posts = await getCollection('posts');
-  return posts.map((post) => ({
-    params: { slug: post.slug },
-    props: { post },
+  return posts.map(entry => ({
+    params: { slug: entry.slug },
+    props: { entry, allPosts: posts },
   }));
 }
 
-const { post } = Astro.props;
-const { Content } = await post.render();
+const { entry, allPosts } = Astro.props;
+const { Content } = await entry.render();
 
-const categoryMeta: Record<string, { name: string; color: string; source: string; url: string }> = {
-  cert: {
-    name: '국가기술자격증',
-    color: '#1d4ed8',
-    source: '한국산업인력공단 큐넷',
-    url: 'https://www.q-net.or.kr',
-  },
-  hrd: {
-    name: '내일배움카드',
-    color: '#059669',
-    source: '고용노동부 직업훈련포털',
-    url: 'https://www.hrd.go.kr',
-  },
-  exam: {
-    name: '채용고시',
-    color: '#d97706',
-    source: '사이버국가고시센터',
-    url: 'https://www.gosi.kr',
-  },
+// 현재 글을 제외한 연관 추천글 4개 추출
+const relatedPosts = allPosts
+  .filter(p => p.slug !== entry.slug)
+  .sort((a, b) => new Date(b.data.pubDate).getTime() - new Date(a.data.pubDate).getTime())
+  .slice(0, 4);
+
+const categoryNames: Record<string, string> = {
+  cert: '국가자격증',
+  hrd: '내일배움카드',
+  exam: '채용고시',
 };
-
-const cat = categoryMeta[post.data.category] || {
-  name: '일반 정보',
-  color: '#64748b',
-  source: post.data.source_name || '공식 기관',
-  url: post.data.source_url || '#',
-};
-
-const canonical = new URL(Astro.url.pathname, Astro.site).href;
-const catUrl = new URL(`/category/${post.data.category}/`, Astro.site).href;
-const iso = post.data.pubDate.toISOString();
-const jsonLd = [
-  {
-    '@context': 'https://schema.org',
-    '@type': 'Article',
-    headline: post.data.title,
-    description: post.data.description,
-    datePublished: iso,
-    dateModified: iso,
-    inLanguage: 'ko-KR',
-    mainEntityOfPage: canonical,
-    image: new URL(OG_IMAGE_PATH, Astro.site).href,
-    author: { '@type': 'Organization', name: SHORT_NAME },
-    publisher: { '@type': 'Organization', name: SITE_NAME },
-  },
-  {
-    '@context': 'https://schema.org',
-    '@type': 'BreadcrumbList',
-    itemListElement: [
-      { '@type': 'ListItem', position: 1, name: '홈', item: new URL('/', Astro.site).href },
-      { '@type': 'ListItem', position: 2, name: cat.name, item: catUrl },
-      { '@type': 'ListItem', position: 3, name: post.data.title, item: canonical },
-    ],
-  },
-];
-
-// 관련 글 (같은 카테고리 우선, 부족하면 최신글로 채움) → 체류시간·페이지뷰 증가
-const allPosts = await getCollection('posts');
-const byDate = (a, b) => b.data.pubDate.valueOf() - a.data.pubDate.valueOf();
-const others = allPosts.filter((p) => p.slug !== post.slug).sort(byDate);
-const related = [
-  ...others.filter((p) => p.data.category === post.data.category),
-  ...others.filter((p) => p.data.category !== post.data.category),
-].slice(0, 3);
 ---
 
-<Layout title={post.data.title} description={post.data.description} type="article" pubDate={post.data.pubDate} jsonLd={jsonLd}>
-  <article class="post-container">
-    <nav class="crumbs" aria-label="현재 위치">
-      <a href="/">홈</a> &rsaquo; <a href={`/category/${post.data.category}/`}>{cat.name}</a>
-    </nav>
-    <div class="post-meta">
-      <span class="badge" style={`background: ${cat.color}`}>{cat.name}</span>
-      <time>{post.data.pubDate.toLocaleDateString('ko-KR')}</time>
-    </div>
+<Layout title={entry.data.title} description={entry.data.description}>
+  <article style="background-color: #ffffff; border: 1px solid #f1f5f9; border-radius: 12px; padding: 24px; box-shadow: 0 1px 2px 0 rgba(0,0,0,0.02);">
+    <!-- 상단 태그 및 타이틀 -->
+    <header style="margin-bottom: 20px;">
+      <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
+        <span style="background-color: #059669; color: #ffffff; font-size: 10px; font-weight: 700; padding: 2px 6px; border-radius: 4px;">
+          {categoryNames[entry.data.category] || '일반'}
+        </span>
+        <time style="font-size: 11px; color: #94a3b8;">
+          {new Date(entry.data.pubDate).toLocaleDateString('ko-KR')}
+        </time>
+      </div>
+      
+      <h1 style="font-size: 20px; font-weight: 800; color: #0f172a; line-height: 1.35; margin-bottom: 12px;">
+        {entry.data.title}
+      </h1>
 
-    <h1 class="post-title">{post.data.title}</h1>
+      <div style="background-color: #f8fafc; border: 1px solid #f1f5f9; padding: 10px 12px; border-radius: 6px; font-size: 11px; color: #64748b; margin-bottom: 12px; display: flex; gap: 12px; flex-wrap: wrap;">
+        <span>📅 게시일: {new Date(entry.data.pubDate).toLocaleDateString('ko-KR')}</span>
+        <span>ℹ️ 제도·일정·금액은 변경될 수 있으니 공식 출처에서 최종 확인하세요.</span>
+      </div>
+    </header>
 
-    <!-- 출처·게시일 안내 박스 (사실만 표기) -->
-    <div class="verify-box">
-      <span>📅 <strong>게시일:</strong> {post.data.pubDate.toLocaleDateString('ko-KR')}</span>
-      <span>🏛️ <strong>확인 출처:</strong> {cat.source}</span>
-      <span>ℹ️ 제도·일정·금액은 변경될 수 있으니 공식 출처에서 최종 확인하세요.</span>
-    </div>
-
-    <div class="post-body">
+    <!-- 본문 내용 -->
+    <div style="font-size: 13px; color: #334155; line-height: 1.7; margin-bottom: 24px;">
       <Content />
     </div>
 
-    <AdSlot slot={AD_SLOT_1} />
-
-    <!-- 카테고리별 인터랙티브 계산기 위젯 -->
-    {SHOW_CALCULATORS && post.data.category === 'cert' && (
-      <div class="calc-box">
-        <h3>🧮 국가자격증 응시자격 모의 자가진단기</h3>
-        <p>학력과 실무 경력을 선택하여 기사/산업기사 응시 자격을 모의 확인하세요.</p>
-        <div class="calc-row">
-          <select id="cert-degree" class="calc-input">
-            <option value="4">4년제 대학교 관련학과 (졸업/예정)</option>
-            <option value="3">3년제 전문대 관련학과</option>
-            <option value="2">2년제 전문대 관련학과</option>
-            <option value="0">비관련학과 / 고졸</option>
-          </select>
-          <input type="number" id="cert-exp" class="calc-input" placeholder="실무 경력 (년수, 예: 2)" min="0" />
-        </div>
-        <button type="button" id="cert-btn" class="calc-btn" style="background: #1d4ed8;">응시 자격 판정하기</button>
-        <div id="cert-res" class="calc-res"></div>
+    <!-- 하단 연관 추천글 목록 (4개 출력) -->
+    <section style="margin-top: 24px; padding-top: 16px; border-top: 1px solid #f1f5f9;">
+      <h3 style="font-size: 13px; font-weight: 800; color: #0f172a; margin-bottom: 10px;">함께 보면 좋은 글</h3>
+      <div style="display: flex; flex-direction: column; gap: 8px;">
+        {relatedPosts.map(post => (
+          <div style="display: flex; justify-content: space-between; align-items: center; gap: 8px;">
+            <a href={`/posts/${post.slug}/`} style="font-size: 12px; font-weight: 700; color: #7e22ce; line-height: 1.4; flex: 1;">
+              • {post.data.title}
+            </a>
+            <span style="font-size: 10px; color: #94a3b8; white-space: nowrap;">
+              {new Date(post.data.pubDate).toLocaleDateString('ko-KR')}
+            </span>
+          </div>
+        ))}
       </div>
-    )}
-
-    {SHOW_CALCULATORS && post.data.category === 'hrd' && (
-      <div class="calc-box">
-        <h3>🧮 내일배움카드 훈련장려금 모의 계산기</h3>
-        <p>140시간 이상 훈련과정 참여 시 출석일수별 예상 월 수당을 산출합니다.</p>
-        <div class="calc-row">
-          <select id="hrd-type" class="calc-input">
-            <option value="general">일반 실업자 (월 최대 11.6만원)</option>
-            <option value="kdigital">K-디지털 / 특별훈련 (월 최대 20만원)</option>
-            <option value="kdt-plus">국민취업지원제도 1유형 연계 (월 최대 50만원+)</option>
-          </select>
-          <input type="number" id="hrd-days" class="calc-input" placeholder="월 출석일수 (예: 20)" max="31" min="0" />
-        </div>
-        <button type="button" id="hrd-btn" class="calc-btn" style="background: #059669;">예상 수당 계산하기</button>
-        <div id="hrd-res" class="calc-res"></div>
-      </div>
-    )}
-
-    {SHOW_CALCULATORS && post.data.category === 'exam' && (
-      <div class="calc-box">
-        <h3>🧮 공무원·공기업 채용시험 가산점 모의계산기</h3>
-        <p>보유하신 공통 자격증을 선택하여 필기시험 가산점을 산출합니다.</p>
-        <div class="calc-row" style="grid-template-columns: 1fr;">
-          <label style="display:flex; gap:8px; align-items:center;"><input type="checkbox" id="exam-com" /> 컴활 1급 / 국가기술 기사 자격증 가점</label>
-          <label style="display:flex; gap:8px; align-items:center;"><input type="checkbox" id="exam-kor" /> 한국사능력검정 1·2급 / 공인어학 가점</label>
-        </div>
-        <button type="button" id="exam-btn" class="calc-btn" style="background: #d97706;">가산점 모의 합산하기</button>
-        <div id="exam-res" class="calc-res"></div>
-      </div>
-    )}
-
-    <!-- 공식 기관 안내 박스 -->
-    <div class="source-box">
-      <div>
-        <strong style="color:#003366;">🏛️ 관련 공식 기관 안내</strong>
-        <p style="margin:4px 0 0; color:#475569; font-size:0.85rem;">상세 모집 요강 및 원서 접수는 주관 기관 공식 누리집에서 확인하세요.</p>
-      </div>
-      <a href={cat.url} target="_blank" rel="noopener noreferrer" class="source-btn">
-        👉 {cat.source} 바로가기
-      </a>
-    </div>
-
-    {related.length > 0 && (
-      <section class="related">
-        <h2>함께 보면 좋은 글</h2>
-        <ul>
-          {related.map((r) => (
-            <li>
-              <a href={`/posts/${r.slug}/`}>{r.data.title}</a>
-              <time>{r.data.pubDate.toLocaleDateString('ko-KR')}</time>
-            </li>
-          ))}
-        </ul>
-      </section>
-    )}
-
-    <AdSlot slot={AD_SLOT_2} />
+    </section>
   </article>
-
-  <script is:inline>
-    // 자격증 진단기
-    const certBtn = document.getElementById('cert-btn');
-    if (certBtn) {
-      certBtn.addEventListener('click', () => {
-        const deg = parseInt(document.getElementById('cert-degree').value);
-        const exp = parseFloat(document.getElementById('cert-exp').value) || 0;
-        const res = document.getElementById('cert-res');
-        if (deg === 4 || (deg === 2 && exp >= 2) || (deg === 3 && exp >= 1) || exp >= 4) {
-          res.innerHTML = '<span style="color:#1d4ed8;">🎉 [기사 & 산업기사] 응시 자격 충족 가능성이 높습니다!</span> (큐넷 서류심사 최종 확인 필요)';
-        } else if (deg === 2 || exp >= 2) {
-          res.innerHTML = '<span style="color:#059669;">💡 [산업기사] 응시 자격 충족 가능성이 높습니다!</span>';
-        } else {
-          res.innerHTML = '<span style="color:#e11d48;">⚠️ 현재 학력/경력으로는 기사 응시자격이 다소 부족할 수 있습니다.</span> 기능사 취득 또는 실무경력 추가 필요.';
-        }
-      });
-    }
-
-    // HRD 계산기
-    const hrdBtn = document.getElementById('hrd-btn');
-    if (hrdBtn) {
-      hrdBtn.addEventListener('click', () => {
-        const type = document.getElementById('hrd-type').value;
-        const days = parseFloat(document.getElementById('hrd-days').value) || 0;
-        const res = document.getElementById('hrd-res');
-        if (days < 16) {
-          res.innerHTML = '⚠️ 출석일수 80% 미달 시 훈련장려금이 지급되지 않거나 감액될 수 있습니다.';
-          return;
-        }
-        let maxPay = (type === 'kdigital') ? 200000 : ((type === 'kdt-plus') ? 500000 : 116000);
-        let est = Math.min(maxPay, Math.floor((days / 20) * maxPay));
-        res.innerHTML = `🎉 월 예상 훈련장려금: 약 <strong>${est.toLocaleString()}원</strong> 상당 (단위기간 출석률에 따라 상이)`;
-      });
-    }
-
-    // 가산점 계산기
-    const examBtn = document.getElementById('exam-btn');
-    if (examBtn) {
-      examBtn.addEventListener('click', () => {
-        let total = 0;
-        if (document.getElementById('exam-com').checked) total += 5;
-        if (document.getElementById('exam-kor').checked) total += 3;
-        const res = document.getElementById('exam-res');
-        res.innerHTML = `📢 모의 환산 가산점 합계: <strong>+${total}점</strong> (채용 공고별 세부 가산 비율 확인 필요)`;
-      });
-    }
-  </script>
-
-  <style>
-    .post-container { background: #ffffff; padding: 36px 30px; border-radius: 12px; border: 1px solid #e2e8f0; }
-    .post-meta { display: flex; gap: 10px; align-items: center; margin-bottom: 16px; }
-    .badge { color: #fff; font-size: 0.85rem; font-weight: bold; padding: 4px 12px; border-radius: 20px; }
-    .post-title { font-size: 1.8rem; font-weight: 800; color: #0f172a; margin-bottom: 20px; line-height: 1.35; }
-    .verify-box { margin-bottom: 30px; padding: 14px 18px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; font-size: 0.85rem; color: #475569; display: flex; flex-wrap: wrap; gap: 15px; }
-    .post-body :global(h2) { font-size: 1.35rem; font-weight: 800; margin: 35px 0 15px; color: #0f172a; border-left: 4px solid #1d4ed8; padding-left: 12px; }
-    .post-body :global(h3) { font-size: 1.15rem; font-weight: 700; margin: 25px 0 12px; color: #1e293b; }
-    .post-body :global(p) { margin-bottom: 1.4em; color: #334155; font-size: 1.05rem; }
-    .post-body { overflow-wrap: anywhere; }
-    .post-body :global(p), .post-body :global(li) { word-break: keep-all; }
-    .post-body :global(table) { display: block; max-width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch; border-collapse: collapse; margin: 25px 0; font-size: 0.95rem; }
-    .post-body :global(th), .post-body :global(td) { border: 1px solid #cbd5e1; padding: 10px 12px; text-align: left; min-width: 90px; }
-    .post-body :global(th) { background: #f1f5f9; font-weight: bold; color: #0f172a; }
-    .calc-box { margin: 40px 0; padding: 25px; background: #f8fafc; border: 2px solid #1d4ed8; border-radius: 10px; }
-    .calc-box h3 { margin-top: 0; margin-bottom: 8px; color: #1e3a8a; }
-    .calc-box p { font-size: 0.9rem; color: #475569; margin-bottom: 15px; }
-    .calc-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 12px; }
-    .calc-input { width: 100%; padding: 10px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 0.95rem; }
-    .calc-btn { width: 100%; padding: 12px; color: #fff; border: none; border-radius: 6px; font-weight: bold; cursor: pointer; font-size: 1rem; }
-    .calc-res { margin-top: 15px; font-weight: bold; font-size: 0.95rem; line-height: 1.5; }
-    .source-box { margin: 40px 0 20px; padding: 18px 20px; background: #f0f7ff; border: 1px solid #cce3fd; border-radius: 8px; display: flex; justify-content: space-between; align-items: center; gap: 15px; flex-wrap: wrap; }
-    .source-btn { background: #003366; color: #fff; padding: 10px 18px; border-radius: 6px; text-decoration: none; font-weight: bold; font-size: 0.9rem; }
-    .crumbs { font-size: 0.85rem; color: #64748b; margin-bottom: 12px; }
-    .crumbs a { color: #64748b; text-decoration: none; }
-    .crumbs a:hover { text-decoration: underline; }
-    .related { margin: 40px 0 0; padding-top: 24px; border-top: 1px solid #e2e8f0; }
-    .related h2 { font-size: 1.1rem; font-weight: 800; margin-bottom: 12px; color: #0f172a; }
-    .related ul { list-style: none; display: grid; gap: 10px; }
-    .related li { display: flex; flex-direction: column; gap: 2px; }
-    .related a { color: #1d4ed8; font-weight: 700; text-decoration: none; line-height: 1.45; }
-    .related time { color: #94a3b8; font-size: 0.8rem; }
-    @media (max-width: 640px) {
-      .post-container { padding: 20px 14px; }
-      .post-title { font-size: 1.4rem; }
-      .calc-row { grid-template-columns: 1fr; }
-    }
-  </style>
 </Layout>
