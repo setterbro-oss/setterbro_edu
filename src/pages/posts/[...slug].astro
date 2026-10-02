@@ -16,7 +16,7 @@ const { Content } = await entry.render();
 // 현재 글을 제외한 연관 추천글 4개 추출
 const relatedPosts = allPosts
   .filter(p => p.slug !== entry.slug)
-  .sort((a, b) => new Date(b.data.pubDate).getTime() - new Date(a.data.pubDate).getTime())
+  .sort((a, b) => new Date(b.data.pubDate).valueOf() - new Date(a.data.pubDate).valueOf())
   .slice(0, 4);
 
 const categoryNames: Record<string, string> = {
@@ -27,48 +27,233 @@ const categoryNames: Record<string, string> = {
 ---
 
 <Layout title={entry.data.title} description={entry.data.description}>
-  <article style="background-color: #ffffff; border: 1px solid #f1f5f9; border-radius: 12px; padding: 24px; box-shadow: 0 1px 2px 0 rgba(0,0,0,0.02);">
-    <!-- 상단 태그 및 타이틀 -->
-    <header style="margin-bottom: 20px;">
-      <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
-        <span style="background-color: #059669; color: #ffffff; font-size: 10px; font-weight: 700; padding: 2px 6px; border-radius: 4px;">
-          {categoryNames[entry.data.category] || '일반'}
-        </span>
-        <time style="font-size: 11px; color: #94a3b8;">
-          {new Date(entry.data.pubDate).toLocaleDateString('ko-KR')}
-        </time>
-      </div>
-      
-      <h1 style="font-size: 20px; font-weight: 800; color: #0f172a; line-height: 1.35; margin-bottom: 12px;">
-        {entry.data.title}
-      </h1>
+  <article class="post-container">
+    <!-- Breadcrumb Nav -->
+    <nav class="breadcrumb">
+      <a href="/">홈</a> &gt; <a href={`/category/${entry.data.category}`}>{categoryNames[entry.data.category] || '일반'}</a>
+    </nav>
 
-      <div style="background-color: #f8fafc; border: 1px solid #f1f5f9; padding: 10px 12px; border-radius: 6px; font-size: 11px; color: #64748b; margin-bottom: 12px; display: flex; gap: 12px; flex-wrap: wrap;">
-        <span>📅 게시일: {new Date(entry.data.pubDate).toLocaleDateString('ko-KR')}</span>
-        <span>ℹ️ 제도·일정·금액은 변경될 수 있으니 공식 출처에서 최종 확인하세요.</span>
-      </div>
-    </header>
+    <!-- 카테고리 태그 및 날짜 -->
+    <div class="post-header-meta">
+      <span class="category-badge">{categoryNames[entry.data.category] || '일반'}</span>
+      <time class="post-date">{new Date(entry.data.pubDate).toLocaleDateString('ko-KR')}</time>
+    </div>
 
-    <!-- 본문 내용 -->
-    <div style="font-size: 13px; color: #334155; line-height: 1.7; margin-bottom: 24px;">
+    <!-- 메인 제목 -->
+    <h1 class="post-title">{entry.data.title}</h1>
+
+    <!-- 출처 및 안내 안내 메타박스 -->
+    <div class="meta-box">
+      <span>🗓️ 게시일: {new Date(entry.data.pubDate).toLocaleDateString('ko-KR')}</span>
+      {entry.data.sourceName && <span>🏛️ 확인 출처: {entry.data.sourceName}</span>}
+      <span>ℹ️ 제도·일정·금액은 변경될 수 있으니 공식 출처에서 최종 확인하세요.</span>
+    </div>
+
+    <!-- 본문 내용 (원래 가독성 스타일) -->
+    <div class="post-body">
       <Content />
     </div>
 
     <!-- 하단 연관 추천글 목록 (4개 출력) -->
-    <section style="margin-top: 24px; padding-top: 16px; border-top: 1px solid #f1f5f9;">
-      <h3 style="font-size: 13px; font-weight: 800; color: #0f172a; margin-bottom: 10px;">함께 보면 좋은 글</h3>
-      <div style="display: flex; flex-direction: column; gap: 8px;">
+    <section class="related-posts">
+      <h3>함께 보면 좋은 글</h3>
+      <ul>
         {relatedPosts.map(post => (
-          <div style="display: flex; justify-content: space-between; align-items: center; gap: 8px;">
-            <a href={`/posts/${post.slug}/`} style="font-size: 12px; font-weight: 700; color: #7e22ce; line-height: 1.4; flex: 1;">
-              • {post.data.title}
-            </a>
-            <span style="font-size: 10px; color: #94a3b8; white-space: nowrap;">
-              {new Date(post.data.pubDate).toLocaleDateString('ko-KR')}
-            </span>
-          </div>
+          <li>
+            <a href={`/posts/${post.slug}/`}>{post.data.title}</a>
+            <time>{new Date(post.data.pubDate).toLocaleDateString('ko-KR')}</time>
+          </li>
         ))}
-      </div>
+      </ul>
     </section>
   </article>
 </Layout>
+
+<style is:global>
+  /* 원본 글자 가독성 스타일 복원 */
+  .post-container {
+    background-color: #ffffff;
+    border: 1px solid #f1f5f9;
+    border-radius: 12px;
+    padding: 32px 28px;
+    box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.02);
+  }
+
+  .breadcrumb {
+    font-size: 13px;
+    color: #94a3b8;
+    margin-bottom: 12px;
+  }
+  .breadcrumb a {
+    color: #64748b;
+    text-decoration: none;
+  }
+  .breadcrumb a:hover {
+    color: #7e22ce;
+  }
+
+  .post-header-meta {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 12px;
+  }
+  .category-badge {
+    background-color: #059669;
+    color: #ffffff;
+    font-size: 12px;
+    font-weight: 700;
+    padding: 3px 8px;
+    border-radius: 4px;
+  }
+  .post-date {
+    font-size: 13px;
+    color: #94a3b8;
+  }
+
+  .post-title {
+    font-size: 26px;
+    font-weight: 800;
+    color: #0f172a;
+    line-height: 1.4;
+    margin-bottom: 18px;
+    letter-spacing: -0.02em;
+  }
+
+  .meta-box {
+    background-color: #f8fafc;
+    border: 1px solid #f1f5f9;
+    padding: 12px 16px;
+    border-radius: 8px;
+    font-size: 13px;
+    color: #64748b;
+    margin-bottom: 28px;
+    display: flex;
+    gap: 16px;
+    flex-wrap: wrap;
+  }
+
+  /* 본문 상세 타이포그래피 (이전의 읽기 편한 글자 스타일) */
+  .post-body {
+    font-size: 15.5px;
+    color: #334155;
+    line-height: 1.8;
+    letter-spacing: -0.01em;
+  }
+
+  .post-body p {
+    margin-bottom: 20px;
+  }
+
+  .post-body h2 {
+    font-size: 20px;
+    font-weight: 800;
+    color: #0f172a;
+    margin-top: 36px;
+    margin-bottom: 16px;
+    padding-bottom: 8px;
+    border-bottom: 2px solid #e2e8f0;
+    line-height: 1.4;
+  }
+
+  .post-body h3 {
+    font-size: 17px;
+    font-weight: 700;
+    color: #1e293b;
+    margin-top: 24px;
+    margin-bottom: 12px;
+  }
+
+  .post-body ul, .post-body ol {
+    margin-bottom: 20px;
+    padding-left: 20px;
+  }
+
+  .post-body li {
+    margin-bottom: 8px;
+  }
+
+  .post-body blockquote {
+    background-color: #f8fafc;
+    border-left: 4px solid #7e22ce;
+    padding: 14px 18px;
+    margin: 20px 0;
+    border-radius: 0 8px 8px 0;
+    font-size: 14.5px;
+    color: #475569;
+  }
+
+  .post-body table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 24px 0;
+    font-size: 14px;
+  }
+
+  .post-body th, .post-body td {
+    border: 1px solid #e2e8f0;
+    padding: 10px 12px;
+    text-align: left;
+  }
+
+  .post-body th {
+    background-color: #f8fafc;
+    font-weight: 700;
+    color: #0f172a;
+  }
+
+  /* 하단 연관 글 스타일 */
+  .related-posts {
+    margin-top: 40px;
+    padding-top: 24px;
+    border-top: 1px solid #f1f5f9;
+  }
+  .related-posts h3 {
+    font-size: 16px;
+    font-weight: 800;
+    color: #0f172a;
+    margin-bottom: 16px;
+  }
+  .related-posts ul {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+  }
+  .related-posts li {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 0;
+    border-bottom: 1px solid #f8fafc;
+  }
+  .related-posts li:last-child {
+    border-bottom: none;
+  }
+  .related-posts a {
+    font-size: 14px;
+    font-weight: 700;
+    color: #7e22ce;
+    text-decoration: none;
+    line-height: 1.4;
+  }
+  .related-posts a:hover {
+    text-decoration: underline;
+  }
+  .related-posts time {
+    font-size: 12px;
+    color: #94a3b8;
+    white-space: nowrap;
+  }
+
+  @media (max-width: 640px) {
+    .post-container {
+      padding: 20px 16px;
+    }
+    .post-title {
+      font-size: 21px;
+    }
+    .post-body {
+      font-size: 14.5px;
+    }
+  }
+</style>
