@@ -7,38 +7,34 @@ const sortedPosts = posts.sort((a, b) => new Date(b.data.date).getTime() - new D
 ---
 
 <Layout title="샛터형 자격증·국비교육 트렌드센터">
-  <div class="card" style="text-align: center; padding: 32px 16px; margin-bottom: 24px;">
-    <h1 style="font-size: 22px; font-weight: 800; color: #0f172a; margin-bottom: 8px; display: flex; align-items: center; justify-content: center; gap: 8px;">
-      <span>🎓</span> 샛터형의 자격증·국비교육 트렌드센터
-    </h1>
-    <p style="font-size: 13px; color: #64748b;">
-      국가기술자격증 일정부터 내일배움카드 국비지원, 공무원·공기업 채용까지 공식 출처 링크와 함께 정리합니다.
-    </p>
+  <!-- 메인 상단 배너 카드 -->
+  <div class="content-card" style="text-align: center; padding: 28px 16px; margin-bottom: 20px;">
+    <h1 style="font-size: 20px; font-weight: 800; color: #0f172a; margin-bottom: 6px;">🎓 샛터형의 자격증·국비교육 트렌드센터</h1>
+    <p style="font-size: 12px; color: #64748b;">국가기술자격증 일정부터 내일배움카드 국비지원, 공무원·공기업 채용까지 정리합니다.</p>
   </div>
 
-  <h2 style="font-size: 16px; font-weight: 800; color: #0f172a; margin-bottom: 16px; display: flex; align-items: center; gap: 6px;">
-    📰 최신 정보 포스팅
-  </h2>
+  <h2 style="font-size: 15px; font-weight: 800; color: #0f172a; margin-bottom: 14px;">📰 최신 정보 포스팅</h2>
 
+  <!-- 글 목록 카드 리스트 -->
   <div style="display: flex; flex-direction: column; gap: 16px;">
     {sortedPosts.map(post => (
-      <article class="card">
+      <article class="content-card" style="padding: 24px;">
         <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
-          <span style="background-color: #10b981; color: #ffffff; font-size: 10px; font-weight: 700; padding: 2px 8px; border-radius: 4px;">
+          <span style="background-color: #10b981; color: white; font-size: 10px; font-weight: 700; padding: 2px 6px; border-radius: 4px;">
             {post.data.category || '국비지원'}
           </span>
           <span style="font-size: 11px; color: #94a3b8;">{post.data.date}</span>
         </div>
 
-        <h3 style="font-size: 18px; font-weight: 800; color: #0f172a; margin-bottom: 8px; line-height: 1.4;">
-          <a href={`/posts/${post.slug}`} style="color: #0f172a;">{post.data.title}</a>
+        <h3 style="font-size: 17px; font-weight: 800; color: #0f172a; margin-bottom: 8px;">
+          <a href={`/posts/${post.slug}`}>{post.data.title}</a>
         </h3>
 
-        <p style="font-size: 13px; color: #64748b; margin-bottom: 16px; line-height: 1.5;">
+        <p style="font-size: 13px; color: #64748b; margin-bottom: 14px;">
           {post.data.description}
         </p>
 
-        <a href={`/posts/${post.slug}`} style="font-size: 12px; font-weight: 700; color: #9333ea; display: inline-flex; align-items: center; gap: 4px;">
+        <a href={`/posts/${post.slug}`} style="font-size: 12px; font-weight: 700; color: #7c3aed;">
           상세 내용 확인하기 →
         </a>
       </article>
