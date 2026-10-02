@@ -41,10 +41,10 @@ const popularPosts = allPosts
       .site-header { background: #ffffff; border-bottom: 1px solid #f1f5f9; position: sticky; top: 0; z-index: 50; }
       .header-inner { max-width: 1080px; margin: 0 auto; padding: 0 16px; height: 56px; display: flex; align-items: center; justify-content: space-between; }
       .brand-logo { font-size: 15px; font-weight: 800; color: #7e22ce; display: flex; align-items: center; gap: 6px; }
-      .main-nav { display: flex; gap: 16px; font-size: 12px; font-weight: 700; color: #64748b; }
+      .main-nav { display: flex; gap: 16px; font-size: 13px; font-weight: 700; color: #64748b; }
       .main-nav a:hover { color: #7e22ce; }
 
-      /* 메인 2컬럼 레이아웃 (우측 사이드바 강제 배치) */
+      /* 메인 2컬럼 레이아웃 */
       .main-container { 
         max-width: 1080px; 
         margin: 0 auto; 
@@ -54,15 +54,15 @@ const popularPosts = allPosts
         gap: 24px; 
       }
       
-      @media (min-width: 768px) {
+      @media (min-width: 860px) {
         .main-container {
           display: grid;
-          grid-template-columns: minmax(0, 1fr) 300px;
+          grid-template-columns: minmax(0, 1fr) 280px;
           align-items: start;
         }
       }
 
-      /* 사이드바 스타일링 */
+      /* 우측 사이드바 */
       .sidebar {
         display: flex;
         flex-direction: column;
@@ -72,34 +72,30 @@ const popularPosts = allPosts
 
       .sidebar-widget { 
         background: #ffffff; 
-        padding: 16px; 
+        padding: 18px; 
         border-radius: 12px; 
         border: 1px solid #f1f5f9; 
         box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.02); 
       }
       
-      .widget-title { font-size: 13px; font-weight: 800; color: #0f172a; margin-bottom: 12px; display: flex; align-items: center; gap: 4px; }
+      .widget-title { font-size: 14px; font-weight: 800; color: #0f172a; margin-bottom: 12px; display: flex; align-items: center; gap: 4px; }
       
-      /* 검색창 스타일 */
+      /* 검색창 */
       .search-box { display: flex; gap: 6px; }
       .search-input { flex: 1; padding: 8px 10px; font-size: 12px; border: 1px solid #e2e8f0; border-radius: 6px; background: #f8fafc; outline: none; }
       .search-input:focus { border-color: #7e22ce; background: #fff; }
       .search-btn { background: #7e22ce; color: #ffffff; padding: 8px 14px; border-radius: 6px; font-size: 12px; font-weight: 700; border: none; cursor: pointer; }
 
-      /* 실시간 인기 BEST 스타일 */
-      .popular-list { list-style: none; font-size: 12px; margin: 0; padding: 0; }
+      /* 실시간 인기 BEST 목록 */
+      .popular-list { list-style: none; font-size: 13px; margin: 0; padding: 0; }
       .popular-item { padding: 8px 0; border-bottom: 1px solid #f8fafc; }
       .popular-item:last-child { border-bottom: none; padding-bottom: 0; }
       .popular-item a { font-weight: 700; color: #334155; line-height: 1.4; display: block; }
       .popular-item a:hover { color: #7e22ce; }
 
-      footer { padding: 32px 16px; text-align: center; font-size: 11px; color: #7e22ce; margin-top: 32px; }
+      footer { padding: 32px 16px; text-align: center; font-size: 12px; color: #7e22ce; margin-top: 32px; }
       footer .footer-links { display: flex; justify-content: center; gap: 12px; margin-bottom: 6px; flex-wrap: wrap; }
       footer .copyright { color: #94a3b8; margin-top: 4px; }
-
-      table { width: 100%; border-collapse: collapse; margin: 16px 0; font-size: 12px; }
-      th, td { border: 1px solid #e2e8f0; padding: 8px 10px; text-align: left; }
-      th { background-color: #f8fafc; font-weight: 700; color: #0f172a; }
     </style>
   </head>
   <body>
