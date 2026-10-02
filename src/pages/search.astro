@@ -1,0 +1,55 @@
+---
+import Layout from '../layouts/Layout.astro';
+import { getCollection } from 'astro:content';
+
+const posts = await getCollection('posts');
+const postList = posts.map(post => ({
+  slug: post.slug,
+  title: post.data.title,
+  description: post.data.description || '',
+  date: post.data.date
+}));
+---
+
+<Layout title="검색 결과 - 샛터형의 경제 트렌드센터">
+  <div class="bg-white p-6 rounded-xl border border-gray-200 shadow-sm">
+    <h1 class="text-2xl font-bold mb-6 text-gray-900" id="search-title">검색 결과</h1>
+    <div id="search-results" class="space-y-4">
+      <p class="text-gray-500">검색어를 분석 중입니다...</p>
+    </div>
+  </div>
+
+  <script is:inline define:vars={{ postList }}>
+    const params = new URLSearchParams(window.location.search);
+    const query = params.get('q')?.toLowerCase() || '';
+    
+    const titleEl = document.getElementById('search-title');
+    const container = document.getElementById('search-results');
+
+    if (titleEl && query) {
+      titleEl.textContent = `'${query}' 검색 결과`;
+    }
+
+    if (!query) {
+      container.innerHTML = '<p class="text-gray-500">검색어를 입력해 주세요.</p>';
+    } else {
+      const filtered = postList.filter(p => 
+        p.title.toLowerCase().includes(query) || p.description.toLowerCase().includes(query)
+      );
+
+      if (filtered.length === 0) {
+        container.innerHTML = '<p class="text-gray-500">검색 결과가 없습니다.</p>';
+      } else {
+        container.innerHTML = filtered.map(p => `
+          <article class="p-4 border border-gray-100 rounded-lg hover:border-blue-300 transition">
+            <a href="/posts/${p.slug}" class="block">
+              <h2 class="text-lg font-bold text-gray-900 hover:text-blue-600 mb-1">${p.title}</h2>
+              <p class="text-sm text-gray-600 line-clamp-2">${p.description}</p>
+              <span class="text-xs text-gray-400 mt-2 block">${p.date}</span>
+            </a>
+          </article>
+        `).join('');
+      }
+    }
+  </script>
+</Layout>
