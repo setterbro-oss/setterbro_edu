@@ -19,63 +19,73 @@ const { title, description = "생활 절세, 소액 자산관리, 정부지원�
     <meta property="og:description" content={description} />
     <meta property="og:image" content={image} />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <!-- Tailwind CSS CDN (디자인 복원 핵심) -->
+    <script src="https://cdn.tailwindcss.com"></script>
     <!-- 카카오톡 공유 SDK -->
     <script src="https://developers.kakao.com/sdk/js/kakao.min.js" is:inline></script>
   </head>
-  <body class="bg-gray-50 text-gray-800 font-sans leading-relaxed">
+  <body class="bg-[#F8FAFC] text-gray-800 font-sans leading-relaxed">
+    <!-- 상단 헤더 -->
     <header class="bg-white border-b border-gray-200 sticky top-0 z-50">
       <div class="max-w-6xl mx-auto px-4 h-16 flex items-center justify-between">
-        <a href="/" class="text-xl font-bold text-blue-900">샛터형의 경제 트렌드센터</a>
-        <nav class="hidden md:flex space-x-6 text-sm font-medium text-gray-600">
-          <a href="/category/tax" class="hover:text-blue-600">생활 절세 및 세금 환급</a>
-          <a href="/category/finance" class="hover:text-blue-600">스마트 재테크 & 소액 자산관리</a>
-          <a href="/category/policy" class="hover:text-blue-600">정부지원금 및 생활 정책</a>
+        <a href="/" class="text-lg md:text-xl font-bold text-[#1E293B] flex items-center gap-2">
+          <span>🎓</span> 샛터형 자격증·국비지원 센터
+        </a>
+        <nav class="hidden md:flex space-x-6 text-sm font-semibold text-gray-600">
+          <a href="/" class="text-purple-600">홈</a>
+          <a href="/category/national" class="hover:text-purple-600">국가지원중</a>
+          <a href="/category/card" class="hover:text-purple-600">내일배움카드</a>
+          <a href="/category/exam" class="hover:text-purple-600">채용고시</a>
         </nav>
       </div>
     </header>
 
+    <!-- 메인 레이아웃 (본문 + 우측 사이드바) -->
     <main class="max-w-6xl mx-auto px-4 py-8 grid grid-cols-1 lg:grid-cols-3 gap-8">
-      <section class="lg:col-span-2">
+      <!-- 좌측 콘텐츠 영역 -->
+      <section class="lg:col-span-2 space-y-6">
         <slot />
       </section>
 
-      <!-- 우측 사이드바 (실시간 인기 BEST, 검색, 최신글) -->
-      <aside class="space-y-8">
+      <!-- 우측 사이드바 (검색 / 인기글 / 카테고리) -->
+      <aside class="space-y-6">
         <!-- 검색창 -->
-        <div class="bg-white p-5 rounded-xl border border-gray-200 shadow-sm">
-          <h3 class="font-bold text-gray-900 mb-3 text-base">Search(검색)</h3>
+        <div class="bg-white p-5 rounded-2xl border border-gray-100 shadow-sm">
+          <h3 class="font-bold text-gray-900 mb-3 text-sm flex items-center gap-1.5">
+            🔍 Search (검색)
+          </h3>
           <form action="/search" method="GET" class="flex gap-2">
             <input 
               type="text" 
               name="q" 
               placeholder="검색어를 입력하세요..." 
               required
-              class="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              class="w-full px-3 py-2 text-xs border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 bg-gray-50"
             />
-            <button type="submit" class="bg-gray-800 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-gray-700">
+            <button type="submit" class="bg-gray-900 text-white px-4 py-2 rounded-xl text-xs font-bold hover:bg-gray-800 transition">
               검색
             </button>
           </form>
         </div>
 
         <!-- 실시간 인기 BEST -->
-        <div class="bg-white p-5 rounded-xl border border-gray-200 shadow-sm">
-          <h3 class="font-bold text-gray-900 mb-4 text-base flex items-center gap-1.5">
+        <div class="bg-white p-5 rounded-2xl border border-gray-100 shadow-sm">
+          <h3 class="font-bold text-gray-900 mb-4 text-sm flex items-center gap-1.5">
             🔥 실시간 인기 BEST
           </h3>
-          <ul class="space-y-3 text-sm">
-            <li class="border-b pb-2">
-              <a href="#" class="font-semibold text-gray-800 hover:text-blue-600 line-clamp-2">
+          <ul class="space-y-3 text-xs">
+            <li class="border-b border-gray-100 pb-2.5">
+              <a href="#" class="font-semibold text-gray-700 hover:text-purple-600 line-clamp-2 leading-snug">
                 1. 모르면 매달 손해보는 은행 종수신 폭증 속 이자 극대화 로드맵
               </a>
             </li>
-            <li class="border-b pb-2">
-              <a href="#" class="font-semibold text-gray-800 hover:text-blue-600 line-clamp-2">
+            <li class="border-b border-gray-100 pb-2.5">
+              <a href="#" class="font-semibold text-gray-700 hover:text-purple-600 line-clamp-2 leading-snug">
                 2. 모르면 잃는 신혼부부 세액공제, 13월의 월급을 즉시 확인하세요
               </a>
             </li>
-            <li class="border-b pb-2">
-              <a href="#" class="font-semibold text-gray-800 hover:text-blue-600 line-clamp-2">
+            <li class="border-b border-gray-100 pb-2.5">
+              <a href="#" class="font-semibold text-gray-700 hover:text-purple-600 line-clamp-2 leading-snug">
                 3. 연말정산 놓쳤다면? 5월 종합소득세 신고·경정청구로 환급받는 법
               </a>
             </li>
@@ -84,8 +94,18 @@ const { title, description = "생활 절세, 소액 자산관리, 정부지원�
       </aside>
     </main>
 
-    <footer class="bg-white border-t border-gray-200 py-6 mt-12 text-center text-xs text-gray-500">
-      <p>© 2026 샛터형의 경제 트렌드센터. All rights reserved.</p>
+    <!-- 푸터 -->
+    <footer class="bg-white border-t border-gray-200 py-8 mt-12 text-center text-xs text-gray-500 space-y-2">
+      <div class="space-x-4">
+        <a href="/about" class="hover:underline">문의하기</a>
+        <span>|</span>
+        <a href="/terms" class="hover:underline">이용약관 및 면책공고</a>
+        <span>|</span>
+        <a href="/privacy" class="hover:underline">개인정보처리방침</a>
+        <span>|</span>
+        <a href="/about" class="hover:underline">사이트 소개</a>
+      </div>
+      <p>© 2026 샛터형의 자격증·국비교육 트렌드센터. All rights reserved.</p>
     </footer>
   </body>
 </html>
