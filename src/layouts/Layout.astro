@@ -1,6 +1,5 @@
 ---
 import { getCollection } from 'astro:content';
-import { SITE_NAME } from '../config';
 
 interface Props {
   title: string;
@@ -10,7 +9,7 @@ interface Props {
 
 const { title, description = "자격증, 국비지원, 채용고시 정보 센터", image = "/og-default.png" } = Astro.props;
 
-// 사이드바 인기글 데이터를 게시물에서 최신순으로 가져오기
+// 사이드바 인기글 데이터를 게시물에서 최신순 3개 가져오기
 const allPosts = await getCollection('posts');
 const popularPosts = allPosts
   .sort((a, b) => new Date(b.data.pubDate).getTime() - new Date(a.data.pubDate).getTime())
@@ -40,34 +39,58 @@ const popularPosts = allPosts
       
       /* 헤더 */
       .site-header { background: #ffffff; border-bottom: 1px solid #f1f5f9; position: sticky; top: 0; z-index: 50; }
-      .header-inner { max-width: 1000px; margin: 0 auto; padding: 0 16px; height: 56px; display: flex; align-items: center; justify-content: space-between; }
+      .header-inner { max-width: 1080px; margin: 0 auto; padding: 0 16px; height: 56px; display: flex; align-items: center; justify-content: space-between; }
       .brand-logo { font-size: 15px; font-weight: 800; color: #7e22ce; display: flex; align-items: center; gap: 6px; }
       .main-nav { display: flex; gap: 16px; font-size: 12px; font-weight: 700; color: #64748b; }
       .main-nav a:hover { color: #7e22ce; }
 
-      /* 2컬럼 본문/사이드바 레이아웃 */
-      .container { max-width: 1000px; margin: 0 auto; padding: 24px 16px; display: grid; grid-template-columns: 1fr; gap: 24px; }
-      @media (min-width: 1024px) { .container { grid-template-columns: 2.7fr 1.3fr; } }
+      /* 메인 2컬럼 레이아웃 (우측 사이드바 강제 배치) */
+      .main-container { 
+        max-width: 1080px; 
+        margin: 0 auto; 
+        padding: 24px 16px; 
+        display: flex; 
+        flex-direction: column; 
+        gap: 24px; 
+      }
+      
+      @media (min-width: 768px) {
+        .main-container {
+          display: grid;
+          grid-template-columns: minmax(0, 1fr) 300px;
+          align-items: start;
+        }
+      }
 
-      /* 우측 사이드바 박스 */
+      /* 사이드바 스타일링 */
+      .sidebar {
+        display: flex;
+        flex-direction: column;
+        gap: 16px;
+        width: 100%;
+      }
+
       .sidebar-widget { 
         background: #ffffff; 
         padding: 16px; 
         border-radius: 12px; 
         border: 1px solid #f1f5f9; 
         box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.02); 
-        margin-bottom: 16px; 
       }
       
-      .widget-title { font-size: 12px; font-weight: 800; color: #0f172a; margin-bottom: 10px; display: flex; align-items: center; gap: 4px; }
+      .widget-title { font-size: 13px; font-weight: 800; color: #0f172a; margin-bottom: 12px; display: flex; align-items: center; gap: 4px; }
+      
+      /* 검색창 스타일 */
       .search-box { display: flex; gap: 6px; }
-      .search-input { flex: 1; padding: 6px 10px; font-size: 11px; border: 1px solid #e2e8f0; border-radius: 6px; background: #f8fafc; outline: none; }
-      .search-btn { background: #0f172a; color: #ffffff; padding: 6px 12px; border-radius: 6px; font-size: 11px; font-weight: 700; border: none; cursor: pointer; }
+      .search-input { flex: 1; padding: 8px 10px; font-size: 12px; border: 1px solid #e2e8f0; border-radius: 6px; background: #f8fafc; outline: none; }
+      .search-input:focus { border-color: #7e22ce; background: #fff; }
+      .search-btn { background: #7e22ce; color: #ffffff; padding: 8px 14px; border-radius: 6px; font-size: 12px; font-weight: 700; border: none; cursor: pointer; }
 
-      .popular-list { list-style: none; font-size: 11px; }
-      .popular-item { padding-bottom: 8px; margin-bottom: 8px; border-bottom: 1px solid #f8fafc; }
-      .popular-item:last-child { border-bottom: none; padding-bottom: 0; margin-bottom: 0; }
-      .popular-item a { font-weight: 600; color: #334155; line-height: 1.35; display: block; }
+      /* 실시간 인기 BEST 스타일 */
+      .popular-list { list-style: none; font-size: 12px; margin: 0; padding: 0; }
+      .popular-item { padding: 8px 0; border-bottom: 1px solid #f8fafc; }
+      .popular-item:last-child { border-bottom: none; padding-bottom: 0; }
+      .popular-item a { font-weight: 700; color: #334155; line-height: 1.4; display: block; }
       .popular-item a:hover { color: #7e22ce; }
 
       footer { padding: 32px 16px; text-align: center; font-size: 11px; color: #7e22ce; margin-top: 32px; }
@@ -94,13 +117,15 @@ const popularPosts = allPosts
       </div>
     </header>
 
-    <main class="container">
-      <section>
+    <div class="main-container">
+      <!-- 좌측 메인 콘텐츠 영역 -->
+      <main>
         <slot />
-      </section>
+      </main>
 
-      <aside>
-        <!-- 우측 1: 검색 창 -->
+      <!-- 우측 사이드바 영역 -->
+      <aside class="sidebar">
+        <!-- 1. Search (검색) -->
         <div class="sidebar-widget">
           <h3 class="widget-title">🔍 Search (검색)</h3>
           <form action="/" method="GET" class="search-box">
@@ -109,7 +134,7 @@ const popularPosts = allPosts
           </form>
         </div>
 
-        <!-- 우측 2: 실시간 인기 BEST -->
+        <!-- 2. 실시간 인기 BEST -->
         <div class="sidebar-widget">
           <h3 class="widget-title">🔥 실시간 인기 BEST</h3>
           <ul class="popular-list">
@@ -121,7 +146,7 @@ const popularPosts = allPosts
           </ul>
         </div>
       </aside>
-    </main>
+    </div>
 
     <footer>
       <div class="footer-links">
