@@ -20,45 +20,50 @@ const relatedPosts = allPosts
 ---
 
 <Layout title={entry.data.title} description={entry.data.description}>
-  <article class="card" style="padding: 32px;">
+  <!-- 하얀 박스 컴포넌트 적용 -->
+  <article class="content-card">
     <header style="margin-bottom: 24px;">
-      <span style="background-color: #10b981; color: #ffffff; font-size: 11px; font-weight: 700; padding: 4px 10px; border-radius: 6px; display: inline-block; margin-bottom: 12px;">
+      <span style="background-color: #10b981; color: #ffffff; font-size: 11px; font-weight: 700; padding: 3px 8px; border-radius: 4px; display: inline-block; margin-bottom: 12px;">
         내일배움카드
       </span>
       
-      <h1 style="font-size: 26px; font-weight: 800; color: #0f172a; line-height: 1.35; margin-bottom: 16px;">
+      <h1 style="font-size: 24px; font-weight: 800; color: #0f172a; line-height: 1.35; margin-bottom: 16px;">
         {entry.data.title}
       </h1>
 
-      <div style="background-color: #f8fafc; border: 1px solid #f1f5f9; padding: 16px; border-radius: 12px; font-size: 12px; color: #475569; margin-bottom: 16px;">
-        <div style="display: flex; gap: 16px; margin-bottom: 6px; flex-wrap: wrap;">
+      <!-- 안내 정보 박스 -->
+      <div style="background-color: #f8fafc; border: 1px solid #e2e8f0; padding: 14px 16px; border-radius: 10px; font-size: 12px; color: #64748b; margin-bottom: 16px;">
+        <div style="display: flex; gap: 16px; margin-bottom: 4px; flex-wrap: wrap;">
           <span>📅 게시일: {entry.data.date}</span>
           <span>🏫 확인 출처: 고용노동부 직업훈련포털</span>
         </div>
-        <p style="color: #64748b;">ℹ️ 제도·일정·금액은 변경될 수 있으니 공식 출처에서 최종 확인하세요.</p>
+        <p>ℹ️ 제도·일정·금액은 변경될 수 있으니 공식 출처에서 최종 확인하세요.</p>
       </div>
 
+      <!-- 공유 버튼 영역 -->
       <div style="display: flex; gap: 8px;">
-        <button onclick="shareKakao()" style="background-color: #facc15; color: #422006; border: none; padding: 6px 14px; border-radius: 8px; font-size: 12px; font-weight: 700; cursor: pointer;">
+        <button onclick="shareKakao()" style="background-color: #facc15; color: #422006; border: none; padding: 6px 12px; border-radius: 6px; font-size: 12px; font-weight: 700; cursor: pointer;">
           🟡 카톡·SNS 공유
         </button>
-        <button onclick="copyLink()" style="background-color: #f1f5f9; border: 1px solid #e2e8f0; color: #334155; padding: 6px 14px; border-radius: 8px; font-size: 12px; font-weight: 600; cursor: pointer;">
+        <button onclick="copyLink()" style="background-color: #f1f5f9; border: 1px solid #cbd5e1; color: #334155; padding: 6px 12px; border-radius: 6px; font-size: 12px; font-weight: 600; cursor: pointer;">
           🔗 링크 복사
         </button>
       </div>
     </header>
 
-    <div style="font-size: 15px; color: #334155; line-height: 1.7; margin-bottom: 32px;">
+    <!-- 본문 내용 -->
+    <div style="font-size: 15px; color: #334155; line-height: 1.75; margin-bottom: 32px;">
       <Content />
     </div>
 
     <AdSlot slotId="AD_SLOT_1" />
 
-    <section style="margin-top: 32px; padding-top: 24px; border-top: 1px solid #f1f5f9;">
-      <h3 style="font-size: 14px; font-weight: 700; color: #0f172a; margin-bottom: 12px;">💡 관련 추천 포스팅</h3>
-      <div style="display: flex; flex-direction: column; gap: 10px;">
+    <!-- 추천 글 -->
+    <section style="margin-top: 32px; padding-top: 20px; border-top: 1px solid #f1f5f9;">
+      <h3 style="font-size: 13px; font-weight: 800; color: #0f172a; margin-bottom: 12px;">💡 함께 보면 좋은 글</h3>
+      <div style="display: flex; flex-direction: column; gap: 8px;">
         {relatedPosts.map(post => (
-          <a href={`/posts/${post.slug}`} style="font-size: 13px; font-weight: 700; color: #2563eb;">
+          <a href={`/posts/${post.slug}`} style="font-size: 13px; font-weight: 700; color: #7c3aed;">
             {post.data.title}
           </a>
         ))}
