@@ -1,109 +1,91 @@
 ---
-import { SITE_NAME, SHORT_NAME, DEFAULT_DESC, OG_IMAGE_PATH, ADS_ENABLED, ADSENSE_CLIENT } from '../config';
-
 interface Props {
   title: string;
   description?: string;
-  noindex?: boolean;
-  type?: 'website' | 'article';
-  pubDate?: Date;
-  jsonLd?: object[];
+  image?: string;
 }
 
-const { title, description = DEFAULT_DESC, noindex = false, type = 'website', pubDate, jsonLd = [] } = Astro.props;
-
-// 검색엔진 소유권 확인 코드
-const GOOGLE_VERIFICATION = 'svZc3E2kbjwkhqvWbCK9MNkMA7PfceqJnusg7GIV_1Y';
-const NAVER_VERIFICATION = '05bc3d50faac5511ddefdc43ceeebe2f5b7cf19a';
-
-const canonicalURL = new URL(Astro.url.pathname, Astro.site);
-const ogImage = new URL(OG_IMAGE_PATH, Astro.site).href;
-const fullTitle = title === SITE_NAME ? SITE_NAME : `${title} | ${SHORT_NAME}`;
+const { title, description = "생활 절세, 소액 자산관리, 정부지원금 가이드", image = "/og-default.png" } = Astro.props;
 ---
 
-<!doctype html>
+<!DOCTYPE html>
 <html lang="ko">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>{fullTitle}</title>
+    <title>{title}</title>
     <meta name="description" content={description} />
-    <meta name="robots" content={noindex ? 'noindex,follow' : 'index,follow,max-image-preview:large'} />
-    <meta name="theme-color" content="#1d4ed8" />
-    <link rel="canonical" href={canonicalURL.href} />
-    <link rel="sitemap" href="/sitemap-index.xml" />
-    <link rel="alternate" type="application/rss+xml" title={SITE_NAME} href="/rss.xml" />
-    <meta property="og:type" content={type} />
-    <meta property="og:site_name" content={SITE_NAME} />
-    <meta property="og:locale" content="ko_KR" />
-    <meta property="og:title" content={fullTitle} />
+    <meta property="og:title" content={title} />
     <meta property="og:description" content={description} />
-    <meta property="og:url" content={canonicalURL.href} />
-    <meta property="og:image" content={ogImage} />
-    <meta property="og:image:width" content="1200" />
-    <meta property="og:image:height" content="630" />
-    {pubDate && <meta property="article:published_time" content={pubDate.toISOString()} />}
-    <meta name="twitter:card" content="summary_large_image" />
-    <meta name="twitter:title" content={fullTitle} />
-    <meta name="twitter:description" content={description} />
-    <meta name="twitter:image" content={ogImage} />
-    {GOOGLE_VERIFICATION && <meta name="google-site-verification" content={GOOGLE_VERIFICATION} />}
-    {NAVER_VERIFICATION && <meta name="naver-site-verification" content={NAVER_VERIFICATION} />}
-    <meta name="google-adsense-account" content={ADSENSE_CLIENT} />
-    {ADS_ENABLED && (
-      <script is:inline async src={`https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=${ADSENSE_CLIENT}`} crossorigin="anonymous"></script>
-    )}
+    <meta property="og:image" content={image} />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-    {jsonLd.map((obj) => <script type="application/ld+json" set:html={JSON.stringify(obj)} />)}
-    <style is:global>
-      * { box-sizing: border-box; margin: 0; padding: 0; }
-      html { -webkit-text-size-adjust: 100%; }
-      body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Noto Sans KR", "Malgun Gothic", sans-serif; line-height: 1.7; color: #1e293b; background: #f8fafc; }
-      img, iframe, video, svg { max-width: 100%; height: auto; }
-      pre { overflow-x: auto; max-width: 100%; }
-      header { background: #ffffff; border-bottom: 1px solid #e2e8f0; padding: 14px 16px; position: sticky; top: 0; z-index: 50; }
-      .nav-container { max-width: 900px; margin: 0 auto; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 6px 16px; }
-      .site-title { font-size: 1.2rem; font-weight: 800; color: #1d4ed8; text-decoration: none; }
-      .nav-links { display: flex; flex-wrap: wrap; gap: 2px 16px; }
-      .nav-links a { color: #475569; text-decoration: none; font-size: 0.95rem; font-weight: 600; }
-      .nav-links a:hover { color: #1d4ed8; }
-      main { max-width: 900px; margin: 30px auto; padding: 0 16px; min-height: 70vh; }
-      footer { background: #ffffff; border-top: 1px solid #e2e8f0; padding: 30px 16px; text-align: center; color: #64748b; font-size: 0.85rem; margin-top: 60px; }
-      footer a { color: #64748b; text-decoration: none; margin: 0 8px; }
-      footer a:hover { text-decoration: underline; }
-      @media (max-width: 640px) {
-        header { position: static; padding: 12px 12px; }
-        .site-title { font-size: 1.05rem; }
-        .nav-links a { font-size: 0.9rem; }
-        main { margin: 16px auto; padding: 0 10px; }
-      }
-    </style>
+    <!-- 카카오톡 공유 SDK -->
+    <script src="https://developers.kakao.com/sdk/js/kakao.min.js" is:inline></script>
   </head>
-  <body>
-    <header>
-      <div class="nav-container">
-        <a href="/" class="site-title">🎓 샛터형 자격증·국비지원 센터</a>
-        <nav class="nav-links">
-          <a href="/">홈</a>
-          <a href="/category/cert/">국가자격증</a>
-          <a href="/category/hrd/">내일배움카드</a>
-          <a href="/category/exam/">채용고시</a>
+  <body class="bg-gray-50 text-gray-800 font-sans leading-relaxed">
+    <header class="bg-white border-b border-gray-200 sticky top-0 z-50">
+      <div class="max-w-6xl mx-auto px-4 h-16 flex items-center justify-between">
+        <a href="/" class="text-xl font-bold text-blue-900">샛터형의 경제 트렌드센터</a>
+        <nav class="hidden md:flex space-x-6 text-sm font-medium text-gray-600">
+          <a href="/category/tax" class="hover:text-blue-600">생활 절세 및 세금 환급</a>
+          <a href="/category/finance" class="hover:text-blue-600">스마트 재테크 & 소액 자산관리</a>
+          <a href="/category/policy" class="hover:text-blue-600">정부지원금 및 생활 정책</a>
         </nav>
       </div>
     </header>
 
-    <main>
-      <slot />
+    <main class="max-w-6xl mx-auto px-4 py-8 grid grid-cols-1 lg:grid-cols-3 gap-8">
+      <section class="lg:col-span-2">
+        <slot />
+      </section>
+
+      <!-- 우측 사이드바 (실시간 인기 BEST, 검색, 최신글) -->
+      <aside class="space-y-8">
+        <!-- 검색창 -->
+        <div class="bg-white p-5 rounded-xl border border-gray-200 shadow-sm">
+          <h3 class="font-bold text-gray-900 mb-3 text-base">Search(검색)</h3>
+          <form action="/search" method="GET" class="flex gap-2">
+            <input 
+              type="text" 
+              name="q" 
+              placeholder="검색어를 입력하세요..." 
+              required
+              class="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+            <button type="submit" class="bg-gray-800 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-gray-700">
+              검색
+            </button>
+          </form>
+        </div>
+
+        <!-- 실시간 인기 BEST -->
+        <div class="bg-white p-5 rounded-xl border border-gray-200 shadow-sm">
+          <h3 class="font-bold text-gray-900 mb-4 text-base flex items-center gap-1.5">
+            🔥 실시간 인기 BEST
+          </h3>
+          <ul class="space-y-3 text-sm">
+            <li class="border-b pb-2">
+              <a href="#" class="font-semibold text-gray-800 hover:text-blue-600 line-clamp-2">
+                1. 모르면 매달 손해보는 은행 종수신 폭증 속 이자 극대화 로드맵
+              </a>
+            </li>
+            <li class="border-b pb-2">
+              <a href="#" class="font-semibold text-gray-800 hover:text-blue-600 line-clamp-2">
+                2. 모르면 잃는 신혼부부 세액공제, 13월의 월급을 즉시 확인하세요
+              </a>
+            </li>
+            <li class="border-b pb-2">
+              <a href="#" class="font-semibold text-gray-800 hover:text-blue-600 line-clamp-2">
+                3. 연말정산 놓쳤다면? 5월 종합소득세 신고·경정청구로 환급받는 법
+              </a>
+            </li>
+          </ul>
+        </div>
+      </aside>
     </main>
 
-    <footer>
-      <p style="margin-bottom: 10px;">
-        <a href="/">홈</a> |
-        <a href="/about/">사이트 소개</a> |
-        <a href="/privacy/">개인정보처리방침</a> |
-        <a href="/terms/">이용약관</a>
-      </p>
-      <p>&copy; 2026 샛터형의 자격증·국비교육 트렌드센터. All rights reserved.</p>
+    <footer class="bg-white border-t border-gray-200 py-6 mt-12 text-center text-xs text-gray-500">
+      <p>© 2026 샛터형의 경제 트렌드센터. All rights reserved.</p>
     </footer>
   </body>
 </html>
