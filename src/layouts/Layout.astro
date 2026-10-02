@@ -23,61 +23,53 @@ const { title, description = "자격증, 국비지원, 채용고시 정보 센�
     <style is:global>
       * { box-sizing: border-box; margin: 0; padding: 0; }
       body { 
-        font-family: -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Pretendard", "Segoe UI", Roboto, sans-serif; 
-        background-color: #f1f5f9; 
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; 
+        background-color: #f8fafc; 
         color: #334155; 
         line-height: 1.6; 
       }
       a { color: inherit; text-decoration: none; }
       
-      /* 헤더 영역 */
-      .site-header { background: #ffffff; border-bottom: 1px solid #e2e8f0; position: sticky; top: 0; z-index: 50; }
-      .header-inner { max-width: 1140px; margin: 0 auto; padding: 0 20px; height: 60px; display: flex; align-items: center; justify-content: space-between; }
-      .brand-logo { font-size: 16px; font-weight: 800; color: #7c3aed; display: flex; align-items: center; gap: 8px; }
-      .main-nav { display: flex; gap: 20px; font-size: 13px; font-weight: 700; color: #475569; }
-      .main-nav a:hover { color: #7c3aed; }
+      /* 헤더 */
+      .site-header { background: #ffffff; border-bottom: 1px solid #f1f5f9; position: sticky; top: 0; z-index: 50; }
+      .header-inner { max-width: 1000px; margin: 0 auto; padding: 0 16px; height: 56px; display: flex; align-items: center; justify-content: space-between; }
+      .brand-logo { font-size: 15px; font-weight: 800; color: #7e22ce; display: flex; align-items: center; gap: 6px; }
+      .main-nav { display: flex; gap: 16px; font-size: 12px; font-weight: 700; color: #64748b; }
+      .main-nav a:hover { color: #7e22ce; }
+
+      /* 컨테이너 및 2컬럼 레이아웃 */
+      .container { max-width: 1000px; margin: 0 auto; padding: 24px 16px; display: grid; grid-template-columns: 1fr; gap: 24px; }
+      @media (min-width: 1024px) { .container { grid-template-columns: 2.7fr 1.3fr; } }
+
+      /* 사이드바 전용 흰색 카드 박스 */
+      .sidebar-widget { 
+        background: #ffffff; 
+        padding: 16px; 
+        border-radius: 12px; 
+        border: 1px solid #f1f5f9; 
+        box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.02); 
+        margin-bottom: 16px; 
+      }
       
-      /* 레이아웃 그리드 */
-      .container { max-width: 1140px; margin: 0 auto; padding: 24px 20px; display: grid; grid-template-columns: 1fr; gap: 24px; }
-      @media (min-width: 1024px) { .container { grid-template-columns: 2.8fr 1.2fr; } }
-
-      /* 흰색 카드 박스 (핵심 디자인 복원) */
-      .content-card { 
-        background: #ffffff; 
-        padding: 32px; 
-        border-radius: 16px; 
-        border: 1px solid #e2e8f0; 
-        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04); 
-      }
-      .sidebar-card { 
-        background: #ffffff; 
-        padding: 20px; 
-        border-radius: 16px; 
-        border: 1px solid #e2e8f0; 
-        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04); 
-        margin-bottom: 20px; 
-      }
-
-      /* 사이드바 요소 */
-      .widget-title { font-size: 13px; font-weight: 800; color: #0f172a; margin-bottom: 12px; display: flex; align-items: center; gap: 6px; }
+      .widget-title { font-size: 12px; font-weight: 800; color: #0f172a; margin-bottom: 10px; display: flex; align-items: center; gap: 4px; }
       .search-box { display: flex; gap: 6px; }
-      .search-input { flex: 1; padding: 8px 12px; font-size: 12px; border: 1px solid #cbd5e1; border-radius: 8px; background: #f8fafc; outline: none; }
-      .search-btn { background: #0f172a; color: #ffffff; padding: 8px 14px; border-radius: 8px; font-size: 12px; font-weight: 700; border: none; cursor: pointer; }
+      .search-input { flex: 1; padding: 6px 10px; font-size: 11px; border: 1px solid #e2e8f0; border-radius: 6px; background: #f8fafc; outline: none; }
+      .search-btn { background: #0f172a; color: #ffffff; padding: 6px 12px; border-radius: 6px; font-size: 11px; font-weight: 700; border: none; cursor: pointer; }
 
-      .popular-list { list-style: none; font-size: 12px; }
-      .popular-item { padding-bottom: 10px; margin-bottom: 10px; border-bottom: 1px solid #f1f5f9; }
+      .popular-list { list-style: none; font-size: 11px; }
+      .popular-item { padding-bottom: 8px; margin-bottom: 8px; border-bottom: 1px solid #f8fafc; }
       .popular-item:last-child { border-bottom: none; padding-bottom: 0; margin-bottom: 0; }
-      .popular-item a { font-weight: 600; color: #334155; line-height: 1.4; display: block; }
-      .popular-item a:hover { color: #7c3aed; }
+      .popular-item a { font-weight: 600; color: #334155; line-height: 1.35; display: block; }
+      .popular-item a:hover { color: #7e22ce; }
 
-      /* 본문 표(Table) 스타일 복원 */
-      table { width: 100%; border-collapse: collapse; margin: 20px 0; font-size: 13px; }
-      th, td { border: 1px solid #e2e8f0; padding: 10px 12px; text-align: left; }
+      footer { padding: 32px 16px; text-align: center; font-size: 11px; color: #7e22ce; margin-top: 32px; }
+      footer .footer-links { display: flex; justify-content: center; gap: 12px; margin-bottom: 6px; flex-wrap: wrap; }
+      footer .copyright { color: #94a3b8; margin-top: 4px; }
+
+      /* 본문 마크다운 표 스타일 */
+      table { width: 100%; border-collapse: collapse; margin: 16px 0; font-size: 12px; }
+      th, td { border: 1px solid #e2e8f0; padding: 8px 10px; text-align: left; }
       th { background-color: #f8fafc; font-weight: 700; color: #0f172a; }
-
-      footer { padding: 32px 20px; text-align: center; font-size: 11px; color: #64748b; margin-top: 40px; }
-      footer a { margin: 0 6px; }
-      footer a:hover { text-decoration: underline; }
     </style>
   </head>
   <body>
@@ -101,7 +93,7 @@ const { title, description = "자격증, 국비지원, 채용고시 정보 센�
       </section>
 
       <aside>
-        <div class="sidebar-card">
+        <div class="sidebar-widget">
           <h3 class="widget-title">🔍 Search (검색)</h3>
           <form action="/search" method="GET" class="search-box">
             <input type="text" name="q" placeholder="검색어를 입력하세요..." required class="search-input" />
@@ -109,7 +101,7 @@ const { title, description = "자격증, 국비지원, 채용고시 정보 센�
           </form>
         </div>
 
-        <div class="sidebar-card">
+        <div class="sidebar-widget">
           <h3 class="widget-title">🔥 실시간 인기 BEST</h3>
           <ul class="popular-list">
             <li class="popular-item">
@@ -127,10 +119,16 @@ const { title, description = "자격증, 국비지원, 채용고시 정보 센�
     </main>
 
     <footer>
-      <div style="margin-bottom: 6px;">
-        <a href="/about">문의하기</a> | <a href="/terms">이용약관 및 면책공고</a> | <a href="/privacy">개인정보처리방침</a> | <a href="/about">사이트 소개</a>
+      <div class="footer-links">
+        <a href="/about">문의하기</a>
+        <span>|</span>
+        <a href="/terms">이용약관 및 면책공고</a>
+        <span>|</span>
+        <a href="/privacy">개인정보처리방침</a>
+        <span>|</span>
+        <a href="/about">사이트 소개</a>
       </div>
-      <p>© 2026 샛터형의 자격증·국비교육 트렌드센터. All rights reserved.</p>
+      <p class="copyright">© 2026 샛터형의 자격증·국비교육 트렌드센터. All rights reserved.</p>
     </footer>
   </body>
 </html>
