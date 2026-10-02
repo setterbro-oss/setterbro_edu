@@ -5,7 +5,7 @@ interface Props {
   image?: string;
 }
 
-const { title, description = "생활 절세, 소액 자산관리, 정부지원금 가이드", image = "/og-default.png" } = Astro.props;
+const { title, description = "자격증, 국비지원, 채용고시 정보 센터", image = "/og-default.png" } = Astro.props;
 ---
 
 <!DOCTYPE html>
@@ -19,93 +19,78 @@ const { title, description = "생활 절세, 소액 자산관리, 정부지원�
     <meta property="og:description" content={description} />
     <meta property="og:image" content={image} />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-    <!-- Tailwind CSS CDN (디자인 복원 핵심) -->
-    <script src="https://cdn.tailwindcss.com"></script>
-    <!-- 카카오톡 공유 SDK -->
     <script src="https://developers.kakao.com/sdk/js/kakao.min.js" is:inline></script>
+    <style is:global>
+      * { box-sizing: border-box; margin: 0; padding: 0; }
+      body { font-family: -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Segoe UI", Roboto, sans-serif; background-color: #f8fafc; color: #334155; line-height: 1.6; }
+      a { color: inherit; text-decoration: none; }
+      .header-bg { background-color: #ffffff; border-bottom: 1px solid #e2e8f0; position: sticky; top: 0; z-index: 50; }
+      .header-container { max-width: 1120px; margin: 0 auto; padding: 0 16px; height: 64px; display: flex; align-items: center; justify-content: space-between; }
+      .logo { font-size: 18px; font-weight: 800; color: #0f172a; display: flex; align-items: center; gap: 8px; }
+      .nav-links { display: flex; gap: 20px; font-size: 14px; font-weight: 600; color: #475569; }
+      .nav-links a:hover { color: #7c3aed; }
+      .main-container { max-width: 1120px; margin: 0 auto; padding: 32px 16px; display: grid; grid-template-columns: 1fr; gap: 32px; }
+      @media (min-width: 1024px) { .main-container { grid-template-columns: 2fr 1fr; } }
+      .card-box { background: #ffffff; padding: 24px; border-radius: 16px; border: 1px solid #f1f5f9; box-shadow: 0 1px 3px rgba(0,0,0,0.05); margin-bottom: 24px; }
+      .sidebar-title { font-size: 14px; font-weight: 700; color: #0f172a; margin-bottom: 12px; display: flex; align-items: center; gap: 6px; }
+      .search-form { display: flex; gap: 8px; }
+      .search-input { width: 100%; padding: 8px 12px; font-size: 13px; border: 1px solid #cbd5e1; border-radius: 8px; background: #f8fafc; }
+      .search-btn { background: #0f172a; color: #fff; padding: 8px 16px; border-radius: 8px; font-size: 13px; font-weight: 700; border: none; cursor: pointer; }
+      .popular-list { list-style: none; font-size: 13px; }
+      .popular-item { padding-bottom: 10px; margin-bottom: 10px; border-bottom: 1px solid #f1f5f9; }
+      .popular-item a { font-weight: 600; color: #334155; }
+      .popular-item a:hover { color: #7c3aed; }
+      footer { background: #ffffff; border-top: 1px solid #e2e8f0; padding: 32px 16px; text-align: center; font-size: 12px; color: #64748b; margin-top: 48px; }
+      footer a { margin: 0 8px; }
+      footer a:hover { text-decoration: underline; }
+      table { width: 100%; border-collapse: collapse; margin: 16px 0; font-size: 14px; }
+      th, td { border: 1px solid #e2e8f0; padding: 10px 12px; text-align: left; }
+      th { background-color: #f1f5f9; font-weight: 700; color: #0f172a; }
+    </style>
   </head>
-  <body class="bg-[#F8FAFC] text-gray-800 font-sans leading-relaxed">
-    <!-- 상단 헤더 -->
-    <header class="bg-white border-b border-gray-200 sticky top-0 z-50">
-      <div class="max-w-6xl mx-auto px-4 h-16 flex items-center justify-between">
-        <a href="/" class="text-lg md:text-xl font-bold text-[#1E293B] flex items-center gap-2">
-          <span>🎓</span> 샛터형 자격증·국비지원 센터
-        </a>
-        <nav class="hidden md:flex space-x-6 text-sm font-semibold text-gray-600">
-          <a href="/" class="text-purple-600">홈</a>
-          <a href="/category/national" class="hover:text-purple-600">국가지원중</a>
-          <a href="/category/card" class="hover:text-purple-600">내일배움카드</a>
-          <a href="/category/exam" class="hover:text-purple-600">채용고시</a>
+  <body>
+    <header class="header-bg">
+      <div class="header-container">
+        <a href="/" class="logo">🎓 샛터형 자격증·국비지원 센터</a>
+        <nav class="nav-links">
+          <a href="/">홈</a>
+          <a href="/category/national">국가지원중</a>
+          <a href="/category/card" style="color: #7c3aed;">내일배움카드</a>
+          <a href="/category/exam">채용고시</a>
         </nav>
       </div>
     </header>
 
-    <!-- 메인 레이아웃 (본문 + 우측 사이드바) -->
-    <main class="max-w-6xl mx-auto px-4 py-8 grid grid-cols-1 lg:grid-cols-3 gap-8">
-      <!-- 좌측 콘텐츠 영역 -->
-      <section class="lg:col-span-2 space-y-6">
+    <main class="main-container">
+      <section>
         <slot />
       </section>
 
-      <!-- 우측 사이드바 (검색 / 인기글 / 카테고리) -->
-      <aside class="space-y-6">
-        <!-- 검색창 -->
-        <div class="bg-white p-5 rounded-2xl border border-gray-100 shadow-sm">
-          <h3 class="font-bold text-gray-900 mb-3 text-sm flex items-center gap-1.5">
-            🔍 Search (검색)
-          </h3>
-          <form action="/search" method="GET" class="flex gap-2">
-            <input 
-              type="text" 
-              name="q" 
-              placeholder="검색어를 입력하세요..." 
-              required
-              class="w-full px-3 py-2 text-xs border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 bg-gray-50"
-            />
-            <button type="submit" class="bg-gray-900 text-white px-4 py-2 rounded-xl text-xs font-bold hover:bg-gray-800 transition">
-              검색
-            </button>
+      <aside>
+        <div class="card-box">
+          <div class="sidebar-title">🔍 Search (검색)</div>
+          <form action="/search" method="GET" class="search-form">
+            <input type="text" name="q" placeholder="검색어를 입력하세요..." required class="search-input" />
+            <button type="submit" class="search-btn">검색</button>
           </form>
         </div>
 
-        <!-- 실시간 인기 BEST -->
-        <div class="bg-white p-5 rounded-2xl border border-gray-100 shadow-sm">
-          <h3 class="font-bold text-gray-900 mb-4 text-sm flex items-center gap-1.5">
-            🔥 실시간 인기 BEST
-          </h3>
-          <ul class="space-y-3 text-xs">
-            <li class="border-b border-gray-100 pb-2.5">
-              <a href="#" class="font-semibold text-gray-700 hover:text-purple-600 line-clamp-2 leading-snug">
-                1. 모르면 매달 손해보는 은행 종수신 폭증 속 이자 극대화 로드맵
-              </a>
-            </li>
-            <li class="border-b border-gray-100 pb-2.5">
-              <a href="#" class="font-semibold text-gray-700 hover:text-purple-600 line-clamp-2 leading-snug">
-                2. 모르면 잃는 신혼부부 세액공제, 13월의 월급을 즉시 확인하세요
-              </a>
-            </li>
-            <li class="border-b border-gray-100 pb-2.5">
-              <a href="#" class="font-semibold text-gray-700 hover:text-purple-600 line-clamp-2 leading-snug">
-                3. 연말정산 놓쳤다면? 5월 종합소득세 신고·경정청구로 환급받는 법
-              </a>
-            </li>
+        <div class="card-box">
+          <div class="sidebar-title">🔥 실시간 인기 BEST</div>
+          <ul class="popular-list">
+            <li class="popular-item"><a href="#">1. 모르면 매달 손해보는 은행 종수신 폭증 속 이자 극대화 로드맵</a></li>
+            <li class="popular-item"><a href="#">2. 모르면 잃는 신혼부부 세액공제, 13월의 월급을 즉시 확인하세요</a></li>
+            <li class="popular-item" style="border:none;"><a href="#">3. 연말정산 놓쳤다면? 5월 종합소득세 신고·경정청구로 환급받는 법</a></li>
           </ul>
         </div>
       </aside>
     </main>
 
-    <!-- 푸터 -->
-    <footer class="bg-white border-t border-gray-200 py-8 mt-12 text-center text-xs text-gray-500 space-y-2">
-      <div class="space-x-4">
-        <a href="/about" class="hover:underline">문의하기</a>
-        <span>|</span>
-        <a href="/terms" class="hover:underline">이용약관 및 면책공고</a>
-        <span>|</span>
-        <a href="/privacy" class="hover:underline">개인정보처리방침</a>
-        <span>|</span>
-        <a href="/about" class="hover:underline">사이트 소개</a>
+    <footer>
+      <div>
+        <a href="/about">문의하기</a> | <a href="/terms">이용약관 및 면책공고</a> | <a href="/privacy">개인정보처리방침</a> | <a href="/about">사이트 소개</a>
       </div>
-      <p>© 2026 샛터형의 자격증·국비교육 트렌드센터. All rights reserved.</p>
+      <p style="margin-top: 8px;">© 2026 샛터형의 자격증·국비교육 트렌드센터. All rights reserved.</p>
     </footer>
   </body>
 </html>
