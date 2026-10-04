@@ -1,7 +1,7 @@
 ---
 title: "대전 현대직업전문학교 내일배움카드 자동차정비산업기사 과정 지원 자격 및 신청 방법"
 description: "대전 현대직업전문학교에서 운영하는 내일배움카드 활용 자동차정비산업기사 국비 지원 과정의 특징과 일반적인 내일배움카드 지원 혜택, 신청 시 주의사항을 친절하게 안내해 드립니다."
-pubDate: 2026-10-02
+pubDate: 2026-10-03
 category: "hrd"
 source_name: "직업훈련포털 HRD-Net"
 source_url: "https://www.hrd.go.kr"
