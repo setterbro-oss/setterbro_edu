@@ -7,6 +7,8 @@ import hashlib
 from datetime import datetime
 import random
 import re
+import html
+import xml.etree.ElementTree as ET
 
 # GitHub Actions Secret에서 Gemini API 키 가져오기
 GEMINI_API_KEY = os.environ.get('GEMINI_API_KEY')
@@ -78,8 +80,21 @@ CATEGORY_CONFIGS = {
 
 # 기존에 발행된 글들의 해시를 저장하는 파일 경로
 PUBLISHED_HASHES_FILE = 'scripts/published_hashes.json'
+# 발행된 글(원본 뉴스 제목 + 생성 제목) 목록 → 같은 주제 중복 발행 방지
+PUBLISHED_TITLES_FILE = 'scripts/published_titles.json'
 # 마크다운 파일이 저장될 폴더
 POSTS_DIR = 'src/content/posts'
+
+# 제목 유사도 임계값 (0~1). 이 값 이상이면 같은 주제로 보고 건너뜀
+SIMILARITY_THRESHOLD = 0.6
+# 중복 발견 시 다른 글감으로 재시도할 최대 횟수
+MAX_TOPIC_ATTEMPTS = 4
+
+# 유사도 계산 시 무시할 흔한 단어
+TITLE_STOPWORDS = {
+    '및', '안내', '가이드', '요약', '핵심', '총정리', '방법', '비교', '제도', '도입',
+    '정리', '분석', '2026', '2026년', '대한', '위한', '최신', '완벽', '실시간'
+}
 
 
 def yq(value, limit=None):
@@ -90,64 +105,137 @@ def yq(value, limit=None):
     return json.dumps(text, ensure_ascii=False)
 
 
+def load_json_list(path):
+    if os.path.exists(path):
+        try:
+            with open(path, 'r', encoding='utf-8') as f:
+                data = json.load(f)
+            return data if isinstance(data, list) else []
+        except Exception:
+            return []
+    return []
+
+
+def save_json_list(path, data):
+    with open(path, 'w', encoding='utf-8') as f:
+        json.dump(data, f, ensure_ascii=False, indent=2)
+
+
 def get_published_hashes():
     """기존 발행된 글들의 해시 목록을 불러옵니다."""
-    if os.path.exists(PUBLISHED_HASHES_FILE):
-        with open(PUBLISHED_HASHES_FILE, 'r', encoding='utf-8') as f:
-            return json.load(f)
-    return []
+    return load_json_list(PUBLISHED_HASHES_FILE)
 
 
 def save_published_hashes(hashes):
     """발행된 글의 해시 목록을 저장합니다."""
-    with open(PUBLISHED_HASHES_FILE, 'w', encoding='utf-8') as f:
-        json.dump(hashes, f, ensure_ascii=False, indent=2)
+    save_json_list(PUBLISHED_HASHES_FILE, hashes)
 
 
-def clean_feed_text(text):
-    """RSS 피드 텍스트에서 HTML 태그를 제거하고 공백을 정리합니다."""
-    # 간단한 태그 제거 (정규식 사용 안 함)
-    clean_text = text.replace('<p>', '').replace('</p>', '') \
-                     .replace('<b>', '').replace('</b>', '') \
-                     .replace('<a>', '').replace('</a>', '')
-    return clean_text.strip()
+# ───────────── 중복 주제 감지 (제목 유사도) ─────────────
+def _bigrams(title):
+    text = re.sub(r'[^0-9a-zA-Z가-힣\s]', ' ', str(title).lower())
+    words = [w for w in text.split() if w not in TITLE_STOPWORDS]
+    joined = ''.join(words)
+    return {joined[i:i + 2] for i in range(len(joined) - 1)}
 
 
-def get_news_from_rss(query, published_hashes):
-    """구글 뉴스 RSS에서 새로운 뉴스 아이템을 가져옵니다."""
-    feed_url = f'https://news.google.com/rss/search?q={requests.utils.quote(query)}&hl=ko&gl=KR&ceid=KR:ko'
-    try:
-        response = requests.get(feed_url, timeout=10)
-        response.raise_for_status()  # HTTP 에러 발생 시 예외 처리
+def title_similarity(a, b):
+    """두 제목의 유사도(0~1). 글자 2-gram 겹침 비율(작은 쪽 기준)."""
+    set_a, set_b = _bigrams(a), _bigrams(b)
+    if not set_a or not set_b:
+        return 0.0
+    return len(set_a & set_b) / min(len(set_a), len(set_b))
 
-        # 간단한 XML 파싱 (외부 라이브러리 사용 안 함)
-        items = []
-        for line in response.text.split('<item>')[1:]:  # <item> 태그 단위로 분리
-            title_match = line.find('<title>')
-            link_match = line.find('<link>')
-            description_match = line.find('<description>')
 
-            if title_match != -1 and link_match != -1 and description_match != -1:
-                title_end = line.find('</title>', title_match)
-                link_end = line.find('</link>', link_match)
-                desc_end = line.find('</description>', description_match)
+def load_existing_titles():
+    """이미 발행된 모든 제목 수집: published_titles.json + 현재 posts 폴더의 title"""
+    titles = [t for t in load_json_list(PUBLISHED_TITLES_FILE) if isinstance(t, str)]
+    if os.path.isdir(POSTS_DIR):
+        for fname in os.listdir(POSTS_DIR):
+            if not fname.endswith('.md'):
+                continue
+            with open(os.path.join(POSTS_DIR, fname), 'r', encoding='utf-8') as pf:
+                m = re.search(r'^title:\s*(.+)$', pf.read(), re.M)
+            if m:
+                titles.append(m.group(1).strip().strip('"\''))
+    return list(dict.fromkeys(titles))  # 순서 유지 + 중복 제거
 
-                title = clean_feed_text(line[title_match + len('<title>'):title_end])
-                link = clean_feed_text(line[link_match + len('<link>'):link_end])
-                description = clean_feed_text(line[description_match + len('<description>'):desc_end])
 
-                # 중복 뉴스 제목 제거 (예: "- 뉴스1", "- 연합뉴스")
-                title = title.split(' - ')[0].strip()
-
-                if link:
-                    item_hash = hashlib.md5(link.encode('utf-8')).hexdigest()
-                    if item_hash not in published_hashes:
-                        items.append({'title': title, 'desc': description, 'url_hash': item_hash})
-                        return items[0]  # 첫 번째 새로운 아이템만 반환
-
-    except requests.exceptions.RequestException as e:
-        print(f"RSS fetch error: {e}")
+def find_similar_title(title, existing_titles):
+    """기존 제목 중 임계값 이상 유사한 것이 있으면 (제목, 점수) 반환"""
+    best = (None, 0.0)
+    for old in existing_titles:
+        score = title_similarity(title, old)
+        if score > best[1]:
+            best = (old, score)
+    if best[1] >= SIMILARITY_THRESHOLD:
+        return best
     return None
+
+
+def remember_topic(published_hashes, existing_titles, url_hash, *titles):
+    """해시와 제목을 기록하고 즉시 저장 (다음 시도/다음 실행에서 재사용 방지)"""
+    if url_hash not in published_hashes:
+        published_hashes.append(url_hash)
+    for t in titles:
+        if t and t not in existing_titles:
+            existing_titles.append(t)
+    save_published_hashes(published_hashes)
+    save_json_list(PUBLISHED_TITLES_FILE, existing_titles)
+
+
+# ───────────── RSS ─────────────
+def get_news_candidates(query, published_hashes, existing_titles, limit=10):
+    """구글 뉴스 RSS에서 '링크도 제목도 처음 보는' 새 뉴스 후보 목록을 가져옵니다."""
+    feed_url = f'https://news.google.com/rss/search?q={requests.utils.quote(query)}&hl=ko&gl=KR&ceid=KR:ko'
+    candidates = []
+    try:
+        response = requests.get(feed_url, timeout=15)
+        response.raise_for_status()
+        root = ET.fromstring(response.content)
+
+        for item in root.iter('item'):
+            raw_title = (item.findtext('title') or '').strip()
+            link = (item.findtext('link') or '').strip()
+            raw_desc = item.findtext('description') or ''
+            if not raw_title or not link:
+                continue
+
+            # 언론사 꼬리표 제거 (예: "제목 - 연합뉴스")
+            title = html.unescape(raw_title).rsplit(' - ', 1)[0].strip()
+            desc = re.sub(r'<[^>]+>', ' ', html.unescape(raw_desc))
+            desc = ' '.join(desc.split()) or title
+
+            item_hash = hashlib.md5(link.encode('utf-8')).hexdigest()
+            if item_hash in published_hashes:
+                continue
+            # 🔥 링크가 달라도 같은 사건(다른 언론사 기사)이면 제외
+            if find_similar_title(title, existing_titles):
+                continue
+            # 이번 후보들끼리도 중복 제거
+            if any(title_similarity(title, c['title']) >= SIMILARITY_THRESHOLD for c in candidates):
+                continue
+
+            candidates.append({'title': title, 'desc': desc, 'url_hash': item_hash})
+            if len(candidates) >= limit:
+                break
+
+    except Exception as e:
+        print(f"RSS fetch error: {e}")
+    return candidates
+
+
+def get_longtail_candidates(category_cfg, published_hashes, existing_titles):
+    """롱테일 글감 중 아직 안 쓴 것들"""
+    result = []
+    for lt_item in category_cfg['longtail']:
+        lt_hash = hashlib.md5(f"longtail_{lt_item['title']}".encode('utf-8')).hexdigest()
+        if lt_hash in published_hashes:
+            continue
+        if find_similar_title(lt_item['title'], existing_titles):
+            continue
+        result.append({'title': lt_item['title'], 'desc': lt_item['desc'], 'url_hash': lt_hash})
+    return result
 
 
 def generate_post_content(target_title, target_desc, category_cfg, persona):
@@ -222,12 +310,41 @@ def generate_post_content(target_title, target_desc, category_cfg, persona):
     return None
 
 
+def build_markdown(ai, target_item, chosen_slug):
+    source = ai.get('official_source') or {}
+    fm_title = yq(ai['title'])
+    fm_desc = yq(ai.get('meta_description') or ai.get('editor_note') or target_item['desc'], limit=160)
+    fm_source_name = yq(source.get('name', ''))
+    fm_source_url = yq(source.get('url', ''))
+    today = datetime.now().strftime('%Y-%m-%d')
+
+    faq_md = ''
+    valid_faqs = [f for f in (ai.get('faqs') or [])
+                  if isinstance(f, dict) and f.get('q') and f.get('a')]
+    if valid_faqs:
+        faq_md = '\n\n## 자주 묻는 질문\n\n' + '\n\n'.join(
+            f"**Q. {' '.join(str(f['q']).split())}**\n\nA. {' '.join(str(f['a']).split())}" for f in valid_faqs
+        )
+
+    return (
+        "---\n"
+        f"title: {fm_title}\n"
+        f"description: {fm_desc}\n"
+        f"pubDate: {today}\n"
+        f"category: \"{chosen_slug}\"\n"
+        f"source_name: {fm_source_name}\n"
+        f"source_url: {fm_source_url}\n"
+        "---\n\n"
+        f"{ai['content_markdown']}{faq_md}\n"
+    )
+
+
 def main():
     published_hashes = get_published_hashes()
+    existing_titles = load_existing_titles()
 
-    # 카테고리 순환 로직 (가장 오래된 발행 카테고리 선택)
-    category_slugs = list(CATEGORY_CONFIGS.keys())
     # 글 수가 가장 적은 카테고리를 우선 선택 (동률이면 랜덤) → 카테고리 균형 유지
+    category_slugs = list(CATEGORY_CONFIGS.keys())
     counts = {slug: 0 for slug in category_slugs}
     if os.path.isdir(POSTS_DIR):
         for fname in os.listdir(POSTS_DIR):
@@ -240,113 +357,73 @@ def main():
     min_count = min(counts.values())
     chosen_slug = random.choice([k for k, v in counts.items() if v == min_count])
     category_cfg = CATEGORY_CONFIGS[chosen_slug]
-
     print(f"⏰ 선택된 카테고리: {category_cfg['name']}")
 
-    target_item = None
+    # 글감 후보: 1차 RSS 뉴스 → 2차 롱테일 (모두 중복 필터 통과분만)
+    candidates = get_news_candidates(category_cfg['query'], published_hashes, existing_titles)
+    candidates += get_longtail_candidates(category_cfg, published_hashes, existing_titles)
 
-    # 1차: 구글 뉴스 RSS에서 새 글감 탐색
-    target_item = get_news_from_rss(category_cfg['query'], published_hashes)
-
-    # 2차: RSS 실패 시 롱테일 글감 탐색
-    if not target_item:
-        for lt_item in category_cfg['longtail']:
-            lt_hash = hashlib.md5(f"longtail_{lt_item['title']}".encode('utf-8')).hexdigest()
-            if lt_hash not in published_hashes:
-                target_item = {'title': lt_item['title'], 'desc': lt_item['desc'], 'url_hash': lt_hash}
-                break
-
-    # 3차: 모든 글감 고갈 시 동적 AI 주제 생성
-    if not target_item:
+    # 3차: 모든 글감 고갈 시 동적 주제 (월 단위로 고정 → 같은 달 중복 방지)
+    if not candidates:
         dynamic_seed = datetime.now().strftime('%Y년 %m월 ') + category_cfg['name'] + ' 실시간 개정안 핵심 가이드'
-        target_item = {
-            'title': dynamic_seed,
-            'desc': f"대중들이 가장 많이 궁금해하는 {category_cfg['name']} 분야의 최신 개정 사항과 실질적인 혜택 신청 기준.",
-            'url_hash': hashlib.md5(f"dynamic_{dynamic_seed}_{datetime.now().strftime('%Y%m%d_%H%M%S')}".encode('utf-8')).hexdigest()
-        }
+        dyn_hash = hashlib.md5(f"dynamic_{dynamic_seed}".encode('utf-8')).hexdigest()
+        if dyn_hash not in published_hashes and not find_similar_title(dynamic_seed, existing_titles):
+            candidates.append({
+                'title': dynamic_seed,
+                'desc': f"대중들이 가장 많이 궁금해하는 {category_cfg['name']} 분야의 최신 개정 사항과 실질적인 혜택 신청 기준.",
+                'url_hash': dyn_hash
+            })
 
-    if not target_item:
-        print("❌ 모든 글감 소진 및 새로운 글감 생성 실패.")
-        sys.exit(1)
-
-    print(f"🔍 확정된 글감: {target_item['title']}")
+    if not candidates:
+        print("ℹ️ 새로 발행할 글감이 없습니다(모두 중복). 이번 실행은 발행 없이 종료합니다.")
+        return
 
     personas = [
         {'role': '1:1 맞춤 금융 상담관', 'tone': '독자와 1:1 상담하듯 신뢰감 있고 친절하며 객관적인 어조를 사용하세요.'},
         {'role': '공공정책 수석 행정 분석가', 'tone': '공식 지침을 명확하고 체계적인 순서도로 정리하는 어투로 서술하세요.'},
         {'role': '실전 재테크 칼럼니스트', 'tone': '실제 혜택 대상자의 실질적인 조건 비교를 중심으로 팩트 위주로 서술하세요.'}
     ]
-    selected_persona = random.choice(personas)
 
-    # Gemini API 호출하여 글 내용 생성
-    ai_response_data = generate_post_content(target_item['title'], target_item['desc'], category_cfg, selected_persona)
+    for attempt, target_item in enumerate(candidates[:MAX_TOPIC_ATTEMPTS], start=1):
+        print(f"🔍 글감 ({attempt}/{MAX_TOPIC_ATTEMPTS}): {target_item['title']}")
 
-    if not ai_response_data:
-        print("❌ AI 글 생성 실패. 워크플로우를 실패 처리합니다.")
-        sys.exit(1)
-
-    # 필수 필드 검증
-    for key in ('title', 'content_markdown'):
-        if not ai_response_data.get(key):
-            print(f"❌ AI 응답에 '{key}' 없음. 워크플로우를 실패 처리합니다.")
+        ai = generate_post_content(target_item['title'], target_item['desc'], category_cfg, random.choice(personas))
+        if not ai:
+            print("❌ AI 글 생성 실패. 워크플로우를 실패 처리합니다.")
             sys.exit(1)
 
-    # 파일명(slug) 정리 + 중복 방지
-    file_slug = str(ai_response_data.get('english_slug', '')).lower().replace(' ', '-')
-    file_slug = re.sub(r'[^a-z0-9-]', '', file_slug).strip('-')[:50]
-    if not file_slug:
-        file_slug = 'post-' + datetime.now().strftime('%Y%m%d-%H%M%S')
-    filename = f"{POSTS_DIR}/{file_slug}.md"
-    if os.path.exists(filename):
-        file_slug = f"{file_slug}-{datetime.now().strftime('%Y%m%d%H%M')}"
-        filename = f"{POSTS_DIR}/{file_slug}.md"
+        for key in ('title', 'content_markdown'):
+            if not ai.get(key):
+                print(f"❌ AI 응답에 '{key}' 없음. 워크플로우를 실패 처리합니다.")
+                sys.exit(1)
 
-    # 🔥 [중복 발행 방지] 최종 해시 검증
-    if target_item['url_hash'] in published_hashes:
-        print(f"⚠️ 이미 발행된 해시입니다. 발행을 건너뜁니다: {target_item['title']}")
+        # 🔥 [중복 발행 방지] 생성된 제목도 기존 글과 비교
+        dup = find_similar_title(ai['title'], existing_titles)
+        if dup:
+            print(f"⚠️ 기존 글과 유사({dup[1]:.2f}): '{dup[0]}' → 이 글감은 건너뛰고 다음 글감을 시도합니다.")
+            remember_topic(published_hashes, existing_titles, target_item['url_hash'], target_item['title'])
+            continue
+
+        # 파일명(slug) 정리 + 중복 방지
+        file_slug = str(ai.get('english_slug', '')).lower().replace(' ', '-')
+        file_slug = re.sub(r'[^a-z0-9-]', '', file_slug).strip('-')[:50]
+        if not file_slug:
+            file_slug = 'post-' + datetime.now().strftime('%Y%m%d-%H%M%S')
+        filename = f"{POSTS_DIR}/{file_slug}.md"
+        if os.path.exists(filename):
+            file_slug = f"{file_slug}-{datetime.now().strftime('%Y%m%d%H%M')}"
+            filename = f"{POSTS_DIR}/{file_slug}.md"
+
+        os.makedirs(POSTS_DIR, exist_ok=True)
+        with open(filename, 'w', encoding='utf-8') as f:
+            f.write(build_markdown(ai, target_item, chosen_slug))
+
+        remember_topic(published_hashes, existing_titles, target_item['url_hash'],
+                       target_item['title'], ai['title'])
+        print(f"🎉 글 발행 성공: {filename}")
         return
 
-    source = ai_response_data.get('official_source') or {}
-    source_name = source.get('name', '')
-    source_url = source.get('url', '')
-
-    # f-string 안에 백슬래시를 쓰면 Python 3.11에서 SyntaxError → 값은 미리 계산
-    fm_title = yq(ai_response_data['title'])
-    fm_desc = yq(ai_response_data.get('meta_description') or ai_response_data.get('editor_note') or target_item['desc'], limit=160)
-    fm_source_name = yq(source_name)
-    fm_source_url = yq(source_url)
-    today = datetime.now().strftime('%Y-%m-%d')
-
-    # FAQ를 본문 끝에 추가 (체류시간·검색 유입 보강)
-    faq_md = ''
-    valid_faqs = [f for f in (ai_response_data.get('faqs') or [])
-                  if isinstance(f, dict) and f.get('q') and f.get('a')]
-    if valid_faqs:
-        faq_md = '\n\n## 자주 묻는 질문\n\n' + '\n\n'.join(
-            f"**Q. {' '.join(str(f['q']).split())}**\n\nA. {' '.join(str(f['a']).split())}" for f in valid_faqs
-        )
-
-    markdown_content = (
-        "---\n"
-        f"title: {fm_title}\n"
-        f"description: {fm_desc}\n"
-        f"pubDate: {today}\n"
-        f"category: \"{chosen_slug}\"\n"
-        f"source_name: {fm_source_name}\n"
-        f"source_url: {fm_source_url}\n"
-        "---\n\n"
-        f"{ai_response_data['content_markdown']}{faq_md}\n"
-    )
-    # 디렉토리 생성 (없는 경우)
-    os.makedirs(POSTS_DIR, exist_ok=True)
-
-    with open(filename, 'w', encoding='utf-8') as f:
-        f.write(markdown_content)
-
-    published_hashes.append(target_item['url_hash'])
-    save_published_hashes(published_hashes)
-
-    print(f"🎉 글 발행 성공: {filename}")
+    print("ℹ️ 시도한 글감이 모두 기존 글과 중복되어 이번 실행은 발행 없이 종료합니다.")
 
 
 if __name__ == "__main__":
