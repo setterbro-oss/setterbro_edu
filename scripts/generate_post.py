@@ -82,8 +82,15 @@ CATEGORY_CONFIGS = {
 PUBLISHED_HASHES_FILE = 'scripts/published_hashes.json'
 # 발행된 글(원본 뉴스 제목 + 생성 제목) 목록 → 같은 주제 중복 발행 방지
 PUBLISHED_TITLES_FILE = 'scripts/published_titles.json'
+# 자동 보충된 롱테일 글감 저장 파일 (카테고리별)
+LONGTAIL_EXTRA_FILE = 'scripts/longtail_extra.json'
 # 마크다운 파일이 저장될 폴더
 POSTS_DIR = 'src/content/posts'
+
+# 미사용 롱테일이 이 개수 미만이면 AI로 자동 보충
+LONGTAIL_MIN_STOCK = 3
+# 한 번에 보충할 최대 개수
+LONGTAIL_REFILL_COUNT = 10
 
 # 제목 유사도 임계값 (0~1). 이 값 이상이면 같은 주제로 보고 건너뜀
 SIMILARITY_THRESHOLD = 0.6
@@ -121,6 +128,22 @@ def save_json_list(path, data):
         json.dump(data, f, ensure_ascii=False, indent=2)
 
 
+def load_json_dict(path):
+    if os.path.exists(path):
+        try:
+            with open(path, 'r', encoding='utf-8') as f:
+                data = json.load(f)
+            return data if isinstance(data, dict) else {}
+        except Exception:
+            return {}
+    return {}
+
+
+def save_json_dict(path, data):
+    with open(path, 'w', encoding='utf-8') as f:
+        json.dump(data, f, ensure_ascii=False, indent=2)
+
+
 def get_published_hashes():
     """기존 발행된 글들의 해시 목록을 불러옵니다."""
     return load_json_list(PUBLISHED_HASHES_FILE)
@@ -129,6 +152,38 @@ def get_published_hashes():
 def save_published_hashes(hashes):
     """발행된 글의 해시 목록을 저장합니다."""
     save_json_list(PUBLISHED_HASHES_FILE, hashes)
+
+
+# ───────────── 전국 단위 우선 / 지역·단일 기관 후순위 ─────────────
+REGION_NAMES = ['서울', '부산', '대구', '인천', '광주', '대전', '울산', '세종', '경기', '강원',
+                '충북', '충남', '전북', '전남', '경북', '경남', '제주', '충청', '전라', '경상']
+REGION_RE = re.compile(
+    r'^(' + '|'.join(REGION_NAMES) +
+    r')(특별자치시|특별자치도|특별시|광역시|시청|도청|시교육청|도교육청|교육청|시민|도민|지역|권|시|도)?'
+    r'(은|는|이|가|의|에|에서|도|를|을|와|과|로|으로|만)?$')
+# OO시 / OO군 / OO구 형태 (이용시·신청시 같은 흔한 단어는 제외)
+CITY_RE = re.compile(r'^[가-힣]{2,4}?(시|군|구)(은|는|이|가|의|에|에서|도|를|을|와|과|로|으로|만)?$')
+NOT_CITY = {'이용시', '신청시', '접수시', '지원시', '가입시', '발급시', '응시', '입학시', '취업시',
+            '수료시', '선발시', '채용시', '합격시', '발표시', '제출시', '지급시', '수령시', '퇴사시',
+            '시험시', '제도시', '발생시', '변경시', '해당시', '필요시', '정부시', '교육시', '훈련시'}
+# 단일 기관(학교·학원·지사 등)
+INSTITUTION_SUFFIX = ('학교', '대학교', '학원', '병원', '지사', '지부', '지청', '교육청', '직업전문학교')
+# 전국 단위 신호
+NATIONAL_KEYWORDS = ['정부', '전국', '국가', '고용노동부', '교육부', '인사혁신처', '행정안전부', '보건복지부',
+                     '국민', '전면', '개정', '시행', '확대', '신설', '통합', '일제', '2026', '올해', '내년',
+                     '내일배움카드', 'K-디지털', '큐넷', 'HRD', 'NCS', '한국산업인력공단', '공단', '국민취업지원제도']
+
+
+def locality_info(title):
+    """제목에서 (지역/단일기관 여부, 전국 신호 점수) 판별"""
+    local_hits = 0
+    for tok in re.sub(r'[^0-9a-zA-Z가-힣\s]', ' ', str(title)).split():
+        if tok in NOT_CITY:
+            continue
+        if REGION_RE.match(tok) or CITY_RE.match(tok) or tok.endswith(INSTITUTION_SUFFIX):
+            local_hits += 1
+    national_score = sum(1 for kw in NATIONAL_KEYWORDS if kw in str(title))
+    return local_hits > 0, national_score
 
 
 # ───────────── 중복 주제 감지 (제목 유사도) ─────────────
@@ -185,7 +240,7 @@ def remember_topic(published_hashes, existing_titles, url_hash, *titles):
 
 
 # ───────────── RSS ─────────────
-def get_news_candidates(query, published_hashes, existing_titles, limit=10):
+def get_news_candidates(query, published_hashes, existing_titles, limit=20):
     """구글 뉴스 RSS에서 '링크도 제목도 처음 보는' 새 뉴스 후보 목록을 가져옵니다."""
     feed_url = f'https://news.google.com/rss/search?q={requests.utils.quote(query)}&hl=ko&gl=KR&ceid=KR:ko'
     candidates = []
@@ -216,7 +271,9 @@ def get_news_candidates(query, published_hashes, existing_titles, limit=10):
             if any(title_similarity(title, c['title']) >= SIMILARITY_THRESHOLD for c in candidates):
                 continue
 
-            candidates.append({'title': title, 'desc': desc, 'url_hash': item_hash})
+            is_local, nat_score = locality_info(title)
+            candidates.append({'title': title, 'desc': desc, 'url_hash': item_hash,
+                               'is_local': is_local, 'score': nat_score})
             if len(candidates) >= limit:
                 break
 
@@ -225,21 +282,139 @@ def get_news_candidates(query, published_hashes, existing_titles, limit=10):
     return candidates
 
 
-def get_longtail_candidates(category_cfg, published_hashes, existing_titles):
+def all_longtail(slug, category_cfg, extra):
+    """코드에 적힌 롱테일 + 자동 보충된 롱테일을 합친 목록"""
+    items = list(category_cfg['longtail'])
+    for it in extra.get(slug, []):
+        if isinstance(it, dict) and it.get('title') and it.get('desc'):
+            items.append(it)
+    return items
+
+
+def get_longtail_candidates(items, published_hashes, existing_titles):
     """롱테일 글감 중 아직 안 쓴 것들"""
     result = []
-    for lt_item in category_cfg['longtail']:
+    for lt_item in items:
         lt_hash = hashlib.md5(f"longtail_{lt_item['title']}".encode('utf-8')).hexdigest()
         if lt_hash in published_hashes:
             continue
         if find_similar_title(lt_item['title'], existing_titles):
             continue
-        result.append({'title': lt_item['title'], 'desc': lt_item['desc'], 'url_hash': lt_hash})
+        result.append({'title': lt_item['title'], 'desc': lt_item['desc'], 'url_hash': lt_hash,
+                       'is_local': False, 'score': 0})
     return result
 
 
-def generate_post_content(target_title, target_desc, category_cfg, persona):
+def call_gemini(prompt, temperature=0.3, max_attempts=3):
+    """Gemini 호출 공통 함수 (재시도 + 대체 모델 폴백). 성공 시 파싱된 JSON, 실패 시 None"""
+    headers = {'Content-Type': 'application/json', 'x-goog-api-key': GEMINI_API_KEY}
+    data = {
+        "contents": [{"parts": [{"text": prompt}]}],
+        "generationConfig": {"responseMimeType": "application/json", "temperature": temperature}
+    }
+
+    models = [GEMINI_MODEL] + [m for m in FALLBACK_MODELS if m != GEMINI_MODEL]
+
+    for model in models:
+        for attempt in range(1, max_attempts + 1):
+            try:
+                response = requests.post(
+                    endpoint_for(model), headers=headers,
+                    data=json.dumps(data), timeout=90
+                )
+
+                # 404: 모델이 종료/변경됨 → 재시도 없이 다음 모델로
+                if response.status_code == 404:
+                    print(f"⚠️ 모델 사용 불가(404): {model} → 다음 모델로 전환합니다.")
+                    break
+
+                # 429/5xx: 일시적 오류 → 대기 후 재시도
+                if response.status_code in (429, 500, 502, 503, 504):
+                    wait = 15 * attempt
+                    print(f"⚠️ {model} 일시 오류({response.status_code}), {wait}초 후 재시도 ({attempt}/{max_attempts})")
+                    time.sleep(wait)
+                    continue
+
+                response.raise_for_status()
+
+                raw_text = response.json()['candidates'][0]['content']['parts'][0]['text']
+                clean_json = raw_text.replace('```json', '').replace('```', '').strip()
+                result = json.loads(clean_json)
+                print(f"✅ Gemini 응답 성공 (모델: {model})")
+                return result
+
+            except Exception as e:
+                print(f"Gemini API error ({model}, 시도 {attempt}/{max_attempts}): {e}")
+                time.sleep(5 * attempt)
+
+    return None
+
+
+def refill_longtail(slug, category_cfg, extra, existing_titles):
+    """롱테일 재고가 부족하면 AI로 전국 공통 글감을 보충합니다.
+    어떤 오류가 나도 예외를 밖으로 던지지 않으므로 글 발행에는 영향을 주지 않습니다."""
+    try:
+        known = [i['title'] for i in all_longtail(slug, category_cfg, extra)]
+        pool = list(dict.fromkeys(known + list(existing_titles)))
+        avoid_text = '\n'.join(f"- {t}" for t in pool[-60:])
+        year = datetime.now().year
+        prompt = f"""당신은 [{category_cfg['name']}] 분야 블로그 편집장입니다.
+전국의 구직자·수험생이 검색할 만한 '새 글 주제' {LONGTAIL_REFILL_COUNT}개를 제안하세요. (기준 연도: {year}년)
+
+[규칙]
+- 전국 공통으로 적용되는 제도·시험·자격·신청 방법·비교·준비 전략 주제만 제안하세요.
+- 특정 지역(시·도·시·군·구), 특정 학교·학원·기관명이 들어간 주제는 절대 금지입니다.
+- title: 25~45자의 자연스러운 한국어 제목. 'OO 총정리', 'OO 방법', 'OO 비교'처럼 검색 친화적으로 쓰세요.
+- desc: 글의 핵심을 설명하는 한 문장 (30~90자). 구체적인 수치·날짜·금액은 쓰지 마세요.
+- 아래 '이미 다룬 주제'와 겹치거나 비슷한 주제는 제외하세요.
+
+[이미 다룬 주제]
+{avoid_text}
+
+반드시 순수 JSON 배열로만 응답하세요. 형식: [{{"title": "...", "desc": "..."}}]
+"""
+        result = call_gemini(prompt, temperature=0.7, max_attempts=2)
+        if isinstance(result, dict):
+            result = result.get('topics') or result.get('items') or []
+        if not isinstance(result, list):
+            print("⚠️ 롱테일 보충 실패: 응답 형식 오류 (이번엔 건너뜁니다)")
+            return extra
+
+        accepted = []
+        for it in result:
+            if not isinstance(it, dict):
+                continue
+            title = ' '.join(str(it.get('title', '')).split())
+            desc = ' '.join(str(it.get('desc', '')).split())
+            if not (10 <= len(title) <= 70) or not (10 <= len(desc) <= 150):
+                continue
+            if locality_info(title)[0]:
+                continue
+            if find_similar_title(title, pool):
+                continue
+            accepted.append({'title': title, 'desc': desc})
+            pool.append(title)
+            if len(accepted) >= LONGTAIL_REFILL_COUNT:
+                break
+
+        if accepted:
+            extra.setdefault(slug, []).extend(accepted)
+            save_json_dict(LONGTAIL_EXTRA_FILE, extra)
+            print(f"➕ 롱테일 {len(accepted)}개 자동 보충 완료 ({category_cfg['name']})")
+        else:
+            print("⚠️ 롱테일 보충: 조건에 맞는 새 주제가 없어 건너뜁니다.")
+    except Exception as e:
+        print(f"⚠️ 롱테일 보충 중 오류(무시하고 계속): {e}")
+    return extra
+
+
+def generate_post_content(target_title, target_desc, category_cfg, persona, is_local=False):
     """Gemini API를 사용하여 글 내용을 생성합니다. (재시도 + 대체 모델 폴백)"""
+    local_note = ""
+    if is_local:
+        local_note = ("\n- 🚨 [지역·기관 소식 일반화]: 이번 글감은 특정 지역/기관 소식입니다. 제목에는 지역명·학교명·기관명을 넣지 말고, "
+                      "해당 소식은 '일부 지자체·기관 사례' 정도로만 짧게 언급하세요. 글의 중심은 전국 어디서나 적용되는 "
+                      "제도 개념·신청 방법·자격 조건·확인처로 작성하세요.")
     prompt = f"""당신은 [{category_cfg['name']}] 분야 전문 [{persona['role']}]입니다.
 핵심 주제: [제목] {target_title} / [요약] {target_desc}
 집필 스타일: {persona['tone']}
@@ -250,6 +425,7 @@ def generate_post_content(target_title, target_desc, category_cfg, persona):
 - 🚨 [수치 날조 및 과장 절대 금지]: 공인되지 않은 임의의 금리, 비현실적인 환급액을 날조하지 마세요. 뉴스 및 제도상 확인 가능한 객관적 사실만 서술하세요.
 - 🚨 [가짜 경험담 금지]: '김 모 씨', '현장에서 만나본 사례' 등 실재하지 않는 가상의 사용자 인터뷰를 절대 지어내지 마세요.
 - 🚨 [제목 작성 규칙]: 제목 첫머리에 '모르면 있는', '모르면 잃는', '즉시 확인' 같은 특정 어구를 도배하지 마세요. '2026 총정리', '신청 자격 가이드', '놓치면 손해 보는', '실제 환급액 기준', '지원 요건 핵심 요약' 등 자연스럽게 작성하세요. (45자 내외)
+- 🚨 [전국 단위 우선]: 독자는 전국의 구직자·수험생입니다. 특정 지역·특정 기관·특정 학교에만 해당하는 내용보다 전국 공통으로 적용되는 제도·기준·절차를 중심으로 쓰세요. 제목도 전국 독자가 검색할 만한 표현으로 작성하세요.{local_note}
 - 🚨 [체크리스트 작성]: `editor_note` 항목에는 가짜 1인칭 후기 대신, 독자가 신청 전 반드시 점검해야 할 '실무 행정 필수 체크리스트 3~4문장'을 객관적으로 작성하세요.
 
 가이드라인:
@@ -267,47 +443,8 @@ def generate_post_content(target_title, target_desc, category_cfg, persona):
 
 반드시 유효한 순수 JSON 형식으로만 응답하세요. 키: english_slug, title, keywords, faqs, official_source, editor_note, meta_description, content_markdown
 """
-    headers = {'Content-Type': 'application/json', 'x-goog-api-key': GEMINI_API_KEY}
-    data = {
-        "contents": [{"parts": [{"text": prompt}]}],
-        "generationConfig": {"responseMimeType": "application/json", "temperature": 0.3}
-    }
-
-    models = [GEMINI_MODEL] + [m for m in FALLBACK_MODELS if m != GEMINI_MODEL]
-
-    for model in models:
-        for attempt in range(1, 4):
-            try:
-                response = requests.post(
-                    endpoint_for(model), headers=headers,
-                    data=json.dumps(data), timeout=90
-                )
-
-                # 404: 모델이 종료/변경됨 → 재시도 없이 다음 모델로
-                if response.status_code == 404:
-                    print(f"⚠️ 모델 사용 불가(404): {model} → 다음 모델로 전환합니다.")
-                    break
-
-                # 429/5xx: 일시적 오류 → 대기 후 재시도
-                if response.status_code in (429, 500, 502, 503, 504):
-                    wait = 15 * attempt
-                    print(f"⚠️ {model} 일시 오류({response.status_code}), {wait}초 후 재시도 ({attempt}/3)")
-                    time.sleep(wait)
-                    continue
-
-                response.raise_for_status()
-
-                raw_text = response.json()['candidates'][0]['content']['parts'][0]['text']
-                clean_json = raw_text.replace('```json', '').replace('```', '').strip()
-                result = json.loads(clean_json)
-                print(f"✅ 글 생성 성공 (모델: {model})")
-                return result
-
-            except Exception as e:
-                print(f"Gemini API error ({model}, 시도 {attempt}/3): {e}")
-                time.sleep(5 * attempt)
-
-    return None
+    result = call_gemini(prompt, temperature=0.3, max_attempts=3)
+    return result if isinstance(result, dict) else None
 
 
 def build_markdown(ai, target_item, chosen_slug):
@@ -360,8 +497,19 @@ def main():
     print(f"⏰ 선택된 카테고리: {category_cfg['name']}")
 
     # 글감 후보: 1차 RSS 뉴스 → 2차 롱테일 (모두 중복 필터 통과분만)
-    candidates = get_news_candidates(category_cfg['query'], published_hashes, existing_titles)
-    candidates += get_longtail_candidates(category_cfg, published_hashes, existing_titles)
+    news = get_news_candidates(category_cfg['query'], published_hashes, existing_titles)
+    national_news = sorted([c for c in news if not c['is_local']], key=lambda c: -c['score'])
+    local_news = [c for c in news if c['is_local']]
+    extra = load_json_dict(LONGTAIL_EXTRA_FILE)
+    longtail = get_longtail_candidates(all_longtail(chosen_slug, category_cfg, extra), published_hashes, existing_titles)
+    # 🔄 롱테일 재고 부족 시 자동 보충 (실패해도 발행은 계속)
+    if len(longtail) < LONGTAIL_MIN_STOCK:
+        print(f"📦 롱테일 재고 부족({len(longtail)}개) → 자동 보충을 시도합니다.")
+        extra = refill_longtail(chosen_slug, category_cfg, extra, existing_titles)
+        longtail = get_longtail_candidates(all_longtail(chosen_slug, category_cfg, extra), published_hashes, existing_titles)
+    # 우선순위: ① 전국 단위 뉴스(전국 신호 높은 순) → ② 전국 공통 롱테일 → ③ 지역·단일 기관 뉴스(최후 수단)
+    candidates = national_news + longtail + local_news
+    print(f"📊 후보: 전국 뉴스 {len(national_news)}건 / 롱테일 {len(longtail)}건 / 지역·기관 뉴스 {len(local_news)}건")
 
     # 3차: 모든 글감 고갈 시 동적 주제 (월 단위로 고정 → 같은 달 중복 방지)
     if not candidates:
@@ -371,7 +519,8 @@ def main():
             candidates.append({
                 'title': dynamic_seed,
                 'desc': f"대중들이 가장 많이 궁금해하는 {category_cfg['name']} 분야의 최신 개정 사항과 실질적인 혜택 신청 기준.",
-                'url_hash': dyn_hash
+                'url_hash': dyn_hash,
+                'is_local': False, 'score': 0
             })
 
     if not candidates:
@@ -387,7 +536,8 @@ def main():
     for attempt, target_item in enumerate(candidates[:MAX_TOPIC_ATTEMPTS], start=1):
         print(f"🔍 글감 ({attempt}/{MAX_TOPIC_ATTEMPTS}): {target_item['title']}")
 
-        ai = generate_post_content(target_item['title'], target_item['desc'], category_cfg, random.choice(personas))
+        ai = generate_post_content(target_item['title'], target_item['desc'], category_cfg,
+                                   random.choice(personas), target_item.get('is_local', False))
         if not ai:
             print("❌ AI 글 생성 실패. 워크플로우를 실패 처리합니다.")
             sys.exit(1)
